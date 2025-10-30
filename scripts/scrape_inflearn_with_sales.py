@@ -246,65 +246,89 @@ def parse_price(price_text: str) -> int:
         return 0
 
 
-def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
+def extract_single_price_element(entry_elem: Locator, selector: str, field_name: str) -> Optional[str]:
     """
-    가격 정보 추출 (정가, 할인가, 할인율)
+    단일 가격 요소를 안전하게 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
+        selector: CSS 셀렉터
+        field_name: 필드명 (로깅용)
 
     Returns:
-        가격 정보 딕셔너리
+        추출된 가격 텍스트 또는 None
     """
-    result = {
-        'original_price': None,
-        'sale_price': None,
-        'discount_rate': None,
-    }
-
     try:
-        first_price = None
-        first_price_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(2) > div > div:nth-child(1) > p').first
-
-        has_first_price = first_price_elem.count() > 0
-
-        if has_first_price:
-            first_price = first_price_elem.text_content(timeout=config.ELEMENT_TIMEOUT) # first_price는 존재하거나 존재하지 않으며, 만약 존재한다면 그것은 할인 전 가격이다.
-
-        second_price_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p'
-        discount_rate_selector = None
-
-        if first_price: # 만약 first_price_selector가 존재하면 할인 중인 강의
-            discount_rate_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(2)'
-            second_price_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(3)'
-
-        second_price_elem = entry_elem.locator(second_price_selector).first
-        second_price = second_price_elem.text_content(timeout=config.ELEMENT_TIMEOUT) # second_price는 항상 존재하며 만약 first_price가 있다면 할인 후 가격이고, 없다면 할인 전 가격이다.
-
-        if discount_rate_selector:
-            discount_rate_elem = entry_elem.locator(discount_rate_selector).first
-            discount_rate = discount_rate_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
-
-        if first_price:
-            result['original_price'] = first_price
-            result['sale_price'] = second_price
-            result['discount_rate'] = discount_rate
-        else:
-            result['original_price'] = second_price
-            result['sale_price'] = None
-            result['discount_rate'] = None
-
-        return result
+        elem = entry_elem.locator(selector).first
+        if elem and elem.count() > 0:
+            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
+            return text.strip() if text else None
     except PlaywrightTimeoutError:
-        logger.debug("가격 정보 추출 타임아웃 (요소 로드 지연)")
-    except AttributeError:
-        logger.debug("가격 정보 요소 없음 (페이지 구조 변경 가능)")
-    except PlaywrightError as e:
-        logger.warning(f"가격 정보 추출 실패 (Playwright 오류): {e}")
+        logger.debug(f"{field_name} 추출 타임아웃")
+    except Exception as e:
+        logger.debug(f"{field_name} 추출 실패: {e}")
+    return None
+
+
+def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
+    """
+    가격 정보 추출 (개선 버전)
+
+    페이지 구조:
+    - 할인 없음: second_price만 존재 (정가)
+    - 할인 중: first_price (정가) + second_price (할인가) + discount_rate 존재
+
+    Args:
+        entry_elem: 강의 요소 Locator
+
+    Returns:
+        가격 정보 딕셔너리 {'original_price', 'sale_price', 'discount_rate'}
+    """
+    try:
+        # Step 1: first_price 추출 시도 (할인 전 가격)
+        first_price_text = extract_single_price_element(
+            entry_elem,
+            config.SELECTORS['first_price'],
+            "정가(할인전)"
+        )
+
+        # Step 2: first_price 존재 여부에 따라 분기
+        if first_price_text:
+            # 할인 중: first_price=정가, second_price=할인가, discount_rate 추출
+            sale_price_text = extract_single_price_element(
+                entry_elem,
+                config.SELECTORS['sale_price'],
+                "할인가"
+            )
+            discount_rate_text = extract_single_price_element(
+                entry_elem,
+                config.SELECTORS['discount_rate'],
+                "할인율"
+            )
+
+            return {
+                'original_price': first_price_text,
+                'sale_price': sale_price_text,
+                'discount_rate': discount_rate_text,
+            }
+        else:
+            # 할인 없음: second_price=정가
+            regular_price_text = extract_single_price_element(
+                entry_elem,
+                config.SELECTORS['second_price'],
+                "정가"
+            )
+
+            return {
+                'original_price': regular_price_text,
+                'sale_price': None,
+                'discount_rate': None,
+            }
+
     except Exception as e:
         logger.error(f"가격 정보 추출 중 예상치 못한 오류: {e}", exc_info=True)
 
-    # None 대신 기본 구조 반환 (dict unpacking TypeError 방지)
+    # 예외 발생 시 기본 구조 반환 (dict unpacking TypeError 방지)
     return {
         'original_price': None,
         'sale_price': None,
