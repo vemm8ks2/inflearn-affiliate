@@ -57,7 +57,7 @@ def extract_text_by_selector(
     timeout: int = None
 ) -> Optional[str]:
     """
-    셀렉터로 텍스트 추출하는 공통 함수
+    셀렉터로 텍스트 추출하는 공통 함수 (타임아웃 재시도 포함)
 
     Args:
         entry_elem: 강의 요소 Locator
@@ -69,19 +69,31 @@ def extract_text_by_selector(
         추출된 텍스트 또는 None
     """
     timeout = timeout or config.ELEMENT_TIMEOUT
-    try:
-        elem = entry_elem.locator(selector).first
-        if elem:
-            value = elem.text_content(timeout=timeout)
-            return value.strip() if value else None
-    except PlaywrightTimeoutError:
-        logger.debug(f"{field_name} 추출 타임아웃 (요소 로드 지연)")
-    except AttributeError:
-        logger.debug(f"{field_name} 요소 없음 (페이지 구조 변경 가능)")
-    except PlaywrightError as e:
-        logger.warning(f"{field_name} 추출 실패 (Playwright 오류): {e}")
-    except Exception as e:
-        logger.error(f"{field_name} 추출 중 예상치 못한 오류: {e}", exc_info=True)
+
+    # 재시도 로직: 타임아웃 시 최대 MAX_RETRIES번 재시도
+    for attempt in range(config.MAX_RETRIES + 1):
+        try:
+            elem = entry_elem.locator(selector).first
+            if elem:
+                value = elem.text_content(timeout=timeout)
+                return value.strip() if value else None
+        except PlaywrightTimeoutError:
+            if attempt < config.MAX_RETRIES:
+                logger.debug(f"{field_name} 추출 타임아웃 - 재시도 {attempt + 1}/{config.MAX_RETRIES}")
+                time.sleep(config.RETRY_DELAY)
+                continue
+            else:
+                logger.debug(f"{field_name} 추출 타임아웃 (재시도 {config.MAX_RETRIES}회 실패)")
+        except AttributeError:
+            logger.debug(f"{field_name} 요소 없음 (페이지 구조 변경 가능)")
+            break  # 재시도 불필요
+        except PlaywrightError as e:
+            logger.warning(f"{field_name} 추출 실패 (Playwright 오류): {e}")
+            break  # 재시도 불필요
+        except Exception as e:
+            logger.error(f"{field_name} 추출 중 예상치 못한 오류: {e}", exc_info=True)
+            break  # 재시도 불필요
+
     return None
 
 
@@ -452,7 +464,7 @@ def log_course_info(course: Dict[str, Any], idx: int):
 
 def load_course_list(page, url: str) -> List[Locator]:
     """
-    페이지 로드 및 강의 링크 수집
+    페이지 로드 및 강의 링크 수집 (최적화된 대기 전략)
 
     Args:
         page: Playwright Page 객체
@@ -463,13 +475,22 @@ def load_course_list(page, url: str) -> List[Locator]:
     """
     logger.info(f"🌐 페이지 접속 중: {url}")
     page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
-    time.sleep(2)
+
+    # 네트워크가 idle 상태가 될 때까지 대기 (고정 시간 대신 동적 대기)
+    try:
+        page.wait_for_load_state('networkidle', timeout=3000)
+    except PlaywrightTimeoutError:
+        logger.debug("페이지 로드 대기 타임아웃 (계속 진행)")
 
     # 스크롤하여 콘텐츠 로드
     logger.info("📜 페이지 스크롤 중...")
     for i in range(3):
         page.evaluate("window.scrollBy(0, window.innerHeight)")
-        time.sleep(config.SCROLL_DELAY)
+        # 각 스크롤 후 네트워크 idle 대기 (동적 대기)
+        try:
+            page.wait_for_load_state('networkidle', timeout=2000)
+        except PlaywrightTimeoutError:
+            pass  # 타임아웃 시 계속 진행
         logger.debug(f"스크롤 {i+1}/3 완료")
 
     # 강의 링크 수집
@@ -482,7 +503,7 @@ def load_course_list(page, url: str) -> List[Locator]:
 
 def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[Dict]:
     """
-    모든 강의 데이터 추출
+    모든 강의 데이터 추출 (메트릭 수집 포함)
 
     Args:
         course_links: 강의 링크 Locator 리스트
@@ -492,21 +513,46 @@ def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[D
         강의 정보 딕셔너리 리스트
     """
     courses = []
+    metrics = {
+        'total': 0,
+        'success': 0,
+        'validation_failed': 0,
+        'extraction_failed': 0
+    }
+
     logger.info(f"📊 데이터 추출 중 (최대 {max_courses}개)...")
+    start_time = time.time()
 
     for idx, link in enumerate(course_links[:max_courses]):
+        metrics['total'] += 1
         try:
             course_data = extract_course_data(link, idx)
 
             if is_valid_course(course_data):
                 courses.append(course_data)
                 log_course_info(course_data, idx)
+                metrics['success'] += 1
             else:
                 logger.warning(f"강의 {idx+1} 검증 실패")
+                metrics['validation_failed'] += 1
 
         except Exception as e:
             logger.error(f"강의 {idx+1} 처리 중 오류: {e}", exc_info=True)
+            metrics['extraction_failed'] += 1
             continue
+
+    # 메트릭 요약 출력
+    elapsed = time.time() - start_time
+    success_rate = (metrics['success'] / metrics['total'] * 100) if metrics['total'] > 0 else 0
+    logger.info(f"\n{'='*60}")
+    logger.info(f"📈 수집 통계:")
+    logger.info(f"  • 전체: {metrics['total']}개")
+    logger.info(f"  • 성공: {metrics['success']}개 ({success_rate:.1f}%)")
+    logger.info(f"  • 검증 실패: {metrics['validation_failed']}개")
+    logger.info(f"  • 추출 실패: {metrics['extraction_failed']}개")
+    logger.info(f"  • 소요 시간: {elapsed:.1f}초")
+    logger.info(f"  • 평균 처리 시간: {elapsed/metrics['total']:.2f}초/강의" if metrics['total'] > 0 else "  • 평균 처리 시간: N/A")
+    logger.info(f"{'='*60}\n")
 
     return courses
 

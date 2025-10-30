@@ -38,6 +38,10 @@ class ScraperConfig:
     ELEMENT_TIMEOUT: int = 2000
     SCROLL_DELAY: int = 1
 
+    # 재시도 설정
+    MAX_RETRIES: int = 2
+    RETRY_DELAY: float = 1.0  # 초 단위
+
     # 파일 경로 (프로젝트 루트 기준)
     OUTPUT_DIR: Path = field(default_factory=lambda: Path(__file__).parent.parent / "output")
     SCREENSHOT_PATH: str = ""
