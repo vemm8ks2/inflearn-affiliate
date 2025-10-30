@@ -284,7 +284,7 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
 
 def extract_rating(entry_elem: Locator) -> Optional[float]:
     """
-    평점 추출
+    평점 추출 및 float 변환
 
     Args:
         entry_elem: 강의 요소 Locator
@@ -292,12 +292,23 @@ def extract_rating(entry_elem: Locator) -> Optional[float]:
     Returns:
         평점 (0-5) 또는 None
     """
-    return extract_text_by_selector(entry_elem, config.SELECTORS['rating'], "평점")
+    rating_text = extract_text_by_selector(entry_elem, config.SELECTORS['rating'], "평점")
+    if rating_text:
+        try:
+            rating = float(rating_text.strip())
+            # 범위 검증 (0-5)
+            if 0 <= rating <= 5:
+                return rating
+            else:
+                logger.warning(f"평점 범위 초과: {rating}")
+        except ValueError as e:
+            logger.debug(f"평점 변환 실패 ('{rating_text}'): {e}")
+    return None
 
 
 def extract_review_count(entry_elem: Locator) -> Optional[int]:
     """
-    리뷰 수 추출
+    리뷰 수 추출 및 int 변환
 
     Args:
         entry_elem: 강의 요소 Locator
@@ -305,7 +316,15 @@ def extract_review_count(entry_elem: Locator) -> Optional[int]:
     Returns:
         리뷰 수 또는 None
     """
-    return extract_text_by_selector(entry_elem, config.SELECTORS['review_count'], "리뷰 수")
+    count_text = extract_text_by_selector(entry_elem, config.SELECTORS['review_count'], "리뷰 수")
+    if count_text:
+        try:
+            # 괄호 및 쉼표 제거: "(1,234)" → "1234"
+            clean_text = count_text.strip().strip('()').replace(',', '')
+            return int(clean_text)
+        except ValueError as e:
+            logger.debug(f"리뷰 수 변환 실패 ('{count_text}'): {e}")
+    return None
 
 
 def extract_student_count(entry_elem: Locator) -> Optional[str]:
