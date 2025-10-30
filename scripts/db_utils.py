@@ -30,7 +30,9 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def validate_course_data(course):
     """
-    강의 데이터 유효성 검증
+    강의 데이터 유효성 검증 (개선 버전)
+
+    필수 필드, 데이터 타입, 범위, 논리적 일관성을 모두 검증합니다.
 
     Args:
         course (dict): 강의 데이터 딕셔너리
@@ -38,12 +40,73 @@ def validate_course_data(course):
     Returns:
         bool: 유효 여부
     """
+    # 1. 필수 필드 검증
     required_fields = ["title", "url"]
-
     for field in required_fields:
         if not course.get(field):
-            logger.warning(f"필수 필드 누락: {field} - {course}")
+            logger.warning(f"필수 필드 누락: {field}")
             return False
+
+    # 2. 평점 범위 검증 (0-5)
+    if 'rating' in course and course['rating'] is not None:
+        try:
+            rating = float(course['rating'])
+            if not (0 <= rating <= 5):
+                logger.warning(f"평점 범위 오류: {rating} (0-5 범위를 벗어남)")
+                return False
+        except (ValueError, TypeError):
+            logger.warning(f"평점 타입 오류: {course['rating']}")
+            return False
+
+    # 3. 리뷰 수 검증 (음수 불가)
+    if 'review_count' in course and course['review_count'] is not None:
+        try:
+            review_count = int(course['review_count'])
+            if review_count < 0:
+                logger.warning(f"리뷰 수 음수 오류: {review_count}")
+                return False
+        except (ValueError, TypeError):
+            logger.warning(f"리뷰 수 타입 오류: {course['review_count']}")
+            return False
+
+    # 4. 수강생 수 검증 (음수 불가)
+    if 'student_count' in course and course['student_count'] is not None:
+        try:
+            student_count = int(course['student_count'])
+            if student_count < 0:
+                logger.warning(f"수강생 수 음수 오류: {student_count}")
+                return False
+        except (ValueError, TypeError):
+            logger.warning(f"수강생 수 타입 오류: {course['student_count']}")
+            return False
+
+    # 5. 논리 검증: 리뷰 수 vs 수강생 수
+    # (리뷰 수가 수강생 수보다 많을 수 없음)
+    if ('review_count' in course and 'student_count' in course and
+        course['review_count'] is not None and course['student_count'] is not None):
+        try:
+            review_count = int(course['review_count'])
+            student_count = int(course['student_count'])
+            if review_count > student_count:
+                logger.warning(
+                    f"논리 오류: 리뷰 수({review_count}) > 수강생 수({student_count})"
+                )
+                # 경고만 하고 통과 (실제 데이터에서 발생 가능)
+        except (ValueError, TypeError):
+            pass
+
+    # 6. 가격 검증 (음수 불가)
+    price_fields = ['original_price', 'sale_price']
+    for field in price_fields:
+        if field in course and course[field] is not None:
+            try:
+                price = int(course[field])
+                if price < 0:
+                    logger.warning(f"{field} 음수 오류: {price}")
+                    return False
+            except (ValueError, TypeError):
+                logger.warning(f"{field} 타입 오류: {course[field]}")
+                return False
 
     return True
 

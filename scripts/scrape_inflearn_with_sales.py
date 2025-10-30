@@ -307,6 +307,61 @@ def parse_student_count(count_text: str) -> Optional[int]:
     return None
 
 
+def parse_discount_rate(discount_text: str) -> int:
+    """
+    할인율 문자열을 숫자로 변환
+
+    Args:
+        discount_text: 할인율 문자열 (예: "35%", "50%")
+
+    Returns:
+        변환된 할인율 (숫자, 0-100) 또는 0
+
+    Examples:
+        >>> parse_discount_rate("35%")
+        35
+        >>> parse_discount_rate("50%")
+        50
+        >>> parse_discount_rate(None)
+        0
+    """
+    if not discount_text:
+        return 0
+
+    try:
+        # % 기호 제거 후 숫자만 추출
+        clean_text = ''.join(char for char in discount_text if char.isdigit())
+        if clean_text:
+            return int(clean_text)
+    except (ValueError, AttributeError) as e:
+        logger.debug(f"할인율 변환 실패 ('{discount_text}'): {e}")
+
+    return 0
+
+
+def clean_course_url(url: str) -> str:
+    """
+    URL에서 쿼리 파라미터 제거 (추적 파라미터 정규화)
+
+    Args:
+        url: 원본 URL (쿼리 파라미터 포함 가능)
+
+    Returns:
+        정규화된 URL (쿼리 파라미터 제거됨)
+
+    Examples:
+        >>> clean_course_url("https://www.inflearn.com/course/test?attributionToken=abc")
+        "https://www.inflearn.com/course/test"
+        >>> clean_course_url("https://www.inflearn.com/course/test")
+        "https://www.inflearn.com/course/test"
+    """
+    if not url:
+        return url
+
+    # '?' 기준으로 분리하여 쿼리 파라미터 제거
+    return url.split('?')[0]
+
+
 def extract_single_price_element(entry_elem: Locator, selector: str, field_name: str) -> Optional[str]:
     """
     단일 가격 요소를 안전하게 추출
@@ -333,7 +388,7 @@ def extract_single_price_element(entry_elem: Locator, selector: str, field_name:
 
 def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
     """
-    가격 정보 추출 (개선 버전 - 숫자 변환 포함)
+    가격 정보 추출 (개선 버전 - 숫자 변환 및 is_on_sale 플래그 포함)
 
     페이지 구조:
     - 할인 없음: second_price만 존재 (정가)
@@ -343,7 +398,13 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
         entry_elem: 강의 요소 Locator
 
     Returns:
-        가격 정보 딕셔너리 {'original_price': int, 'sale_price': int, 'discount_rate': str}
+        가격 정보 딕셔너리
+        {
+            'original_price': int,
+            'sale_price': int,
+            'discount_rate': int,
+            'is_on_sale': bool
+        }
     """
     try:
         # Step 1: first_price 추출 시도 (할인 전 가격)
@@ -367,10 +428,14 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
                 "할인율"
             )
 
+            original_price = parse_price_to_number(first_price_text)
+            sale_price = parse_price_to_number(sale_price_text)
+
             return {
-                'original_price': parse_price_to_number(first_price_text),
-                'sale_price': parse_price_to_number(sale_price_text),
-                'discount_rate': discount_rate_text,
+                'original_price': original_price,
+                'sale_price': sale_price,
+                'discount_rate': parse_discount_rate(discount_rate_text),
+                'is_on_sale': True,
             }
         else:
             # 할인 없음: second_price=정가
@@ -380,10 +445,13 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
                 "정가"
             )
 
+            regular_price = parse_price_to_number(regular_price_text)
+
             return {
-                'original_price': parse_price_to_number(regular_price_text),
-                'sale_price': None,
-                'discount_rate': None,
+                'original_price': regular_price,
+                'sale_price': regular_price,  # 할인 없으면 정가와 동일
+                'discount_rate': 0,
+                'is_on_sale': False,
             }
 
     except Exception as e:
@@ -393,7 +461,8 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
     return {
         'original_price': None,
         'sale_price': None,
-        'discount_rate': None,
+        'discount_rate': 0,
+        'is_on_sale': False,
     }
 
 
@@ -473,11 +542,12 @@ def extract_course_data(link: Locator, idx: int) -> Dict[str, Any]:
     """
     try:
         # URL 및 course_id
-        url = link.get_attribute('href')
+        raw_url = link.get_attribute('href')
+        url = clean_course_url(raw_url)  # 추적 파라미터 제거
         course_id = None
 
         if url:
-            course_id = url.split('/course/')[-1].split('?')[0]
+            course_id = url.split('/course/')[-1]
 
         entry_elem = link.locator('div > div:nth-child(2) > div > article')
 
