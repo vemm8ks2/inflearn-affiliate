@@ -57,31 +57,28 @@ class ScraperConfig:
         self.HTML_SOURCE_PATH = str(self.OUTPUT_DIR / "page_source.html")
         self.JSON_OUTPUT = str(self.OUTPUT_DIR / "courses_with_sales.json")
 
-        # 선택자 딕셔너리 (안정적인 Mantine 클래스 사용)
+        # 선택자 딕셔너리 (Phase 1: 상수화)
+        # 주의: nth-child 셀렉터는 DOM 구조 변경에 취약함
         self.SELECTORS = {
-            'title': [
-                'p.mantine-Text-root',  # Mantine 고정 클래스
-            ],
-            'instructor': [
-                'p.mantine-Text-root',
-            ],
-            'thumbnail': [
-                'picture img',
-                'img[alt*="강의"]',
-            ],
-            'price': [
-                'p.mantine-Text-root',  # ₩ 포함 텍스트 필터링
-            ],
-            'rating': [
-                'p.mantine-Text-root',  # 숫자 패턴 매칭
-            ],
-            'review': [
-                'p.mantine-Text-root',  # () 패턴 매칭
-            ],
-            'student': [
-                'span.mantine-Text-root',
-                'span',
-            ],
+            # 기본 정보
+            'course_link': 'li > a[href*="/course/"]',
+            'entry_container': 'div > div:nth-child(2) > div > article',
+
+            # 강의 상세 정보
+            'title': 'div:nth-child(2) > div:nth-child(1) > p:nth-child(1)',
+            'instructor': 'div:nth-child(2) > div:nth-child(1) > p:nth-child(2)',
+            'thumbnail': 'picture img',
+
+            # 가격 정보
+            'first_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(1) > p',
+            'second_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p',
+            'discount_rate': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(2)',
+            'sale_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(3)',
+
+            # 평가 정보
+            'rating': 'div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > div > p',
+            'review_count': 'div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > p',
+            'student_count': 'div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(2) > span',
         }
 
 

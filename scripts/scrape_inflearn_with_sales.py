@@ -12,7 +12,7 @@ import json
 import time
 import re
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 
 # 로컬 모듈 import
 from logger_config import logger
@@ -162,11 +162,11 @@ def extract_instructor(entry_elem: Locator) -> Optional[str]:
     
     try:
         instructor_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(1) > p:nth-child(2)').first
-        instructor = instructor_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
+        instructor = instructor_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
 
         return instructor
     except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
+        logger.debug(f"강사명 추출 실패: {e}")
 
     return None
 
@@ -211,7 +211,7 @@ def parse_price(price_text: str) -> int:
         return 0
 
 
-def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[any]]:
+def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
     """
     가격 정보 추출 (정가, 할인가, 할인율)
 
@@ -261,9 +261,14 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[any]]:
 
         return result
     except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
+        logger.debug(f"가격 정보 추출 실패: {e}")
 
-    return None
+    # None 대신 기본 구조 반환 (dict unpacking TypeError 방지)
+    return {
+        'original_price': None,
+        'sale_price': None,
+        'discount_rate': None,
+    }
 
 
 def extract_rating(entry_elem: Locator) -> Optional[float]:
@@ -278,11 +283,11 @@ def extract_rating(entry_elem: Locator) -> Optional[float]:
     """
     try:
         rating_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > div > p').first
-        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
+        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
 
         return rating
     except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
+        logger.debug(f"평점 추출 실패: {e}")
 
     return None
 
@@ -298,12 +303,12 @@ def extract_review_count(entry_elem: Locator) -> Optional[int]:
         리뷰 수 또는 None
     """
     try:
-        rating_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > p').first
-        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
+        review_count_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > p').first
+        review_count = review_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
 
-        return rating
+        return review_count
     except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
+        logger.debug(f"리뷰 수 추출 실패: {e}")
 
     return None
 
@@ -320,16 +325,16 @@ def extract_student_count(entry_elem: Locator) -> Optional[str]:
     """
     try:
         student_count_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(2) > span').first
-        student_count = student_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
+        student_count = student_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
 
         return student_count
     except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
+        logger.debug(f"수강생 수 추출 실패: {e}")
 
     return None
 
 
-def extract_course_data(link: Locator, idx: int) -> Dict[str, any]:
+def extract_course_data(link: Locator, idx: int) -> Dict[str, Any]:
     """
     강의 하나의 모든 데이터 추출
 
@@ -372,7 +377,7 @@ def extract_course_data(link: Locator, idx: int) -> Dict[str, any]:
         return {}
 
 
-def is_valid_course(course: Dict[str, any]) -> bool:
+def is_valid_course(course: Dict[str, Any]) -> bool:
     """
     강의 데이터 유효성 검증
 
@@ -393,7 +398,7 @@ def is_valid_course(course: Dict[str, any]) -> bool:
     return True
 
 
-def log_course_info(course: Dict[str, any], idx: int):
+def log_course_info(course: Dict[str, Any], idx: int):
     """
     수집한 강의 정보 로깅
 
