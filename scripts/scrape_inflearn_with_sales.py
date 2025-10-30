@@ -737,20 +737,24 @@ def save_debug_files(page):
     logger.info(f"HTML 소스 저장: {config.HTML_SOURCE_PATH}")
 
 
-def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optional[bool] = None) -> List[Dict]:
+def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optional[bool] = None) -> tuple[List[Dict], Dict]:
     """
-    인프런 강의 목록 스크래핑 (리팩토링 버전)
+    인프런 강의 목록 스크래핑 (리팩토링 버전 - 메타데이터 포함)
 
     Args:
         max_courses: 수집할 최대 강의 수 (기본값: config.MAX_COURSES)
         headless: 브라우저 숨김 모드 (기본값: config.HEADLESS)
 
     Returns:
-        강의 정보 딕셔너리 리스트
+        tuple: (강의 정보 딕셔너리 리스트, 메타데이터 딕셔너리)
     """
     # 기본값 설정
     max_courses = max_courses if max_courses is not None else config.MAX_COURSES
     headless = headless if headless is not None else config.HEADLESS
+
+    # 스크래핑 시작 시간 기록
+    start_time = time.time()
+    start_datetime = datetime.now(timezone.utc)
 
     logger.info("=" * 60)
     logger.info("🚀 인프런 강의 스크래핑 시작")
@@ -773,31 +777,78 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
             # 디버그 파일 저장
             save_debug_files(page)
 
-            logger.info(f"\n✅ 총 {len(courses)}개 강의 수집 완료")
-            return courses
+            # 스크래핑 종료 시간 계산
+            end_time = time.time()
+            duration = round(end_time - start_time, 2)
+
+            # 메타데이터 생성
+            metadata = {
+                "version": "1.0.0",
+                "scraper_version": "2.1.0",  # 메타데이터 기능 추가로 버전 업
+                "total_courses": len(courses),
+                "scraped_at": start_datetime.isoformat(),
+                "scraping_duration_seconds": duration,
+                "config": {
+                    "max_courses": max_courses,
+                    "category": config.CATEGORY,
+                    "headless": headless,
+                    "base_url": config.BASE_URL
+                }
+            }
+
+            logger.info(f"\n✅ 총 {len(courses)}개 강의 수집 완료 (소요 시간: {duration}초)")
+            return courses, metadata
 
         except Exception as e:
             logger.error(f"스크래핑 중 치명적 오류 발생: {e}", exc_info=True)
-            return []
+            # 에러 발생 시에도 메타데이터 반환
+            end_time = time.time()
+            duration = round(end_time - start_time, 2)
+            metadata = {
+                "version": "1.0.0",
+                "scraper_version": "2.1.0",
+                "total_courses": 0,
+                "scraped_at": start_datetime.isoformat(),
+                "scraping_duration_seconds": duration,
+                "config": {
+                    "max_courses": max_courses,
+                    "category": config.CATEGORY,
+                    "headless": headless,
+                    "base_url": config.BASE_URL
+                },
+                "error": str(e)
+            }
+            return [], metadata
 
         finally:
             browser.close()
             logger.debug("브라우저 종료")
 
 
-def save_to_json(courses: List[Dict], filename: Optional[str] = None):
+def save_to_json(courses: List[Dict], metadata: Optional[Dict] = None, filename: Optional[str] = None):
     """
-    수집한 강의 데이터를 JSON 파일로 저장
+    수집한 강의 데이터를 JSON 파일로 저장 (메타데이터 포함)
 
     Args:
         courses: 강의 데이터 리스트
+        metadata: 메타데이터 딕셔너리 (선택적)
         filename: 저장할 파일 경로 (기본값: config.JSON_OUTPUT)
     """
     filename = filename or config.JSON_OUTPUT
 
     try:
+        # 메타데이터가 있으면 구조화된 형식으로 저장
+        if metadata:
+            output_data = {
+                "metadata": metadata,
+                "courses": courses
+            }
+        else:
+            # 하위 호환성: 메타데이터 없으면 기존 형식 유지
+            output_data = courses
+
         with open(filename, "w", encoding="utf-8") as f:
-            json.dump(courses, f, ensure_ascii=False, indent=2)
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
         logger.info(f"💾 데이터 저장 완료: {filename}")
     except Exception as e:
         logger.error(f"JSON 저장 실패: {e}", exc_info=True)
@@ -835,15 +886,22 @@ def print_summary(courses: List[Dict]):
 def main():
     """메인 실행 함수"""
     try:
-        # 스크래핑 실행
-        courses = scrape_inflearn_courses()
+        # 스크래핑 실행 (메타데이터 포함)
+        courses, metadata = scrape_inflearn_courses()
 
         if courses:
-            # JSON 저장
-            save_to_json(courses)
+            # JSON 저장 (메타데이터 포함)
+            save_to_json(courses, metadata)
 
             # 결과 요약
             print_summary(courses)
+
+            # 메타데이터 요약 출력
+            logger.info("\n📋 메타데이터:")
+            logger.info(f"  - 데이터 버전: {metadata['version']}")
+            logger.info(f"  - 스크래퍼 버전: {metadata['scraper_version']}")
+            logger.info(f"  - 수집 시간: {metadata['scraped_at']}")
+            logger.info(f"  - 소요 시간: {metadata['scraping_duration_seconds']}초")
         else:
             logger.warning("수집된 데이터가 없습니다.")
 
