@@ -50,6 +50,35 @@ def extract_with_fallback(link: Locator, selectors: List[str], validator=None) -
     return None
 
 
+def extract_text_by_selector(
+    entry_elem: Locator,
+    selector: str,
+    field_name: str,
+    timeout: int = None
+) -> Optional[str]:
+    """
+    셀렉터로 텍스트 추출하는 공통 함수
+
+    Args:
+        entry_elem: 강의 요소 Locator
+        selector: CSS 셀렉터
+        field_name: 필드명 (로깅용)
+        timeout: 타임아웃 (기본값: config.ELEMENT_TIMEOUT)
+
+    Returns:
+        추출된 텍스트 또는 None
+    """
+    timeout = timeout or config.ELEMENT_TIMEOUT
+    try:
+        elem = entry_elem.locator(selector).first
+        if elem:
+            value = elem.text_content(timeout=timeout)
+            return value.strip() if value else None
+    except Exception as e:
+        logger.debug(f"{field_name} 추출 실패: {e}")
+    return None
+
+
 def extract_title(entry_elem: Locator) -> Optional[str]:
     """
     강의 제목 추출
@@ -60,16 +89,7 @@ def extract_title(entry_elem: Locator) -> Optional[str]:
     Returns:
         제목 문자열 또는 None
     """
-
-    try:
-        title_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(1) > p:nth-child(1)').first
-        title = title_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
-
-        return title
-    except Exception as e:
-        logger.debug(f"제목 추출 실패: {e}")
-
-    return None
+    return extract_text_by_selector(entry_elem, config.SELECTORS['title'], "제목")
 
 
 def clean_title(title: str) -> str:
@@ -159,16 +179,7 @@ def extract_instructor(entry_elem: Locator) -> Optional[str]:
     Returns:
         강사명 또는 None
     """
-    
-    try:
-        instructor_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(1) > p:nth-child(2)').first
-        instructor = instructor_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-
-        return instructor
-    except Exception as e:
-        logger.debug(f"강사명 추출 실패: {e}")
-
-    return None
+    return extract_text_by_selector(entry_elem, config.SELECTORS['instructor'], "강사명")
 
 
 def extract_thumbnail(entry_elem: Locator) -> Optional[str]:
@@ -276,20 +287,12 @@ def extract_rating(entry_elem: Locator) -> Optional[float]:
     평점 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         평점 (0-5) 또는 None
     """
-    try:
-        rating_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > div > p').first
-        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-
-        return rating
-    except Exception as e:
-        logger.debug(f"평점 추출 실패: {e}")
-
-    return None
+    return extract_text_by_selector(entry_elem, config.SELECTORS['rating'], "평점")
 
 
 def extract_review_count(entry_elem: Locator) -> Optional[int]:
@@ -297,20 +300,12 @@ def extract_review_count(entry_elem: Locator) -> Optional[int]:
     리뷰 수 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         리뷰 수 또는 None
     """
-    try:
-        review_count_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > p').first
-        review_count = review_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-
-        return review_count
-    except Exception as e:
-        logger.debug(f"리뷰 수 추출 실패: {e}")
-
-    return None
+    return extract_text_by_selector(entry_elem, config.SELECTORS['review_count'], "리뷰 수")
 
 
 def extract_student_count(entry_elem: Locator) -> Optional[str]:
@@ -318,20 +313,12 @@ def extract_student_count(entry_elem: Locator) -> Optional[str]:
     수강생 수 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         수강생 수 문자열 또는 None
     """
-    try:
-        student_count_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(2) > span').first
-        student_count = student_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-
-        return student_count
-    except Exception as e:
-        logger.debug(f"수강생 수 추출 실패: {e}")
-
-    return None
+    return extract_text_by_selector(entry_elem, config.SELECTORS['student_count'], "수강생 수")
 
 
 def extract_course_data(link: Locator, idx: int) -> Dict[str, Any]:
