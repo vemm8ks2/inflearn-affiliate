@@ -7,7 +7,7 @@
 - 설정 관리 개선
 """
 
-from playwright.sync_api import sync_playwright, Locator
+from playwright.sync_api import sync_playwright, Locator, TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
 import json
 import time
 import re
@@ -74,8 +74,14 @@ def extract_text_by_selector(
         if elem:
             value = elem.text_content(timeout=timeout)
             return value.strip() if value else None
+    except PlaywrightTimeoutError:
+        logger.debug(f"{field_name} 추출 타임아웃 (요소 로드 지연)")
+    except AttributeError:
+        logger.debug(f"{field_name} 요소 없음 (페이지 구조 변경 가능)")
+    except PlaywrightError as e:
+        logger.warning(f"{field_name} 추출 실패 (Playwright 오류): {e}")
     except Exception as e:
-        logger.debug(f"{field_name} 추출 실패: {e}")
+        logger.error(f"{field_name} 추출 중 예상치 못한 오류: {e}", exc_info=True)
     return None
 
 
@@ -198,8 +204,14 @@ def extract_thumbnail(entry_elem: Locator) -> Optional[str]:
             img_src = img_elem.get_attribute('src')
             if img_src:
                 return img_src
+    except PlaywrightTimeoutError:
+        logger.debug("썸네일 추출 타임아웃 (요소 로드 지연)")
+    except AttributeError:
+        logger.debug("썸네일 요소 없음 (페이지 구조 변경 가능)")
+    except PlaywrightError as e:
+        logger.warning(f"썸네일 추출 실패 (Playwright 오류): {e}")
     except Exception as e:
-        logger.debug(f"썸네일 추출 실패: {e}")
+        logger.error(f"썸네일 추출 중 예상치 못한 오류: {e}", exc_info=True)
 
     return None
 
@@ -271,8 +283,14 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
             result['discount_rate'] = None
 
         return result
+    except PlaywrightTimeoutError:
+        logger.debug("가격 정보 추출 타임아웃 (요소 로드 지연)")
+    except AttributeError:
+        logger.debug("가격 정보 요소 없음 (페이지 구조 변경 가능)")
+    except PlaywrightError as e:
+        logger.warning(f"가격 정보 추출 실패 (Playwright 오류): {e}")
     except Exception as e:
-        logger.debug(f"가격 정보 추출 실패: {e}")
+        logger.error(f"가격 정보 추출 중 예상치 못한 오류: {e}", exc_info=True)
 
     # None 대신 기본 구조 반환 (dict unpacking TypeError 방지)
     return {
