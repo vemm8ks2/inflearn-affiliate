@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright, Locator, TimeoutError as Playwr
 import json
 import time
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, List, Any
 
 # 로컬 모듈 import
@@ -246,6 +246,67 @@ def parse_price(price_text: str) -> int:
         return 0
 
 
+def parse_price_to_number(price_text: str) -> Optional[int]:
+    """
+    가격 문자열을 숫자로 변환
+
+    Args:
+        price_text: 가격 문자열 (예: "₩77,000", "77000원")
+
+    Returns:
+        변환된 가격 (숫자) 또는 None
+
+    Examples:
+        >>> parse_price_to_number("₩77,000")
+        77000
+        >>> parse_price_to_number("55,000원")
+        55000
+    """
+    if not price_text:
+        return None
+
+    try:
+        # 숫자가 아닌 모든 문자 제거 (₩, 원, 쉼표 등)
+        clean_text = ''.join(char for char in price_text if char.isdigit())
+        if clean_text:
+            return int(clean_text)
+    except (ValueError, AttributeError) as e:
+        logger.debug(f"가격 변환 실패 ('{price_text}'): {e}")
+
+    return None
+
+
+def parse_student_count(count_text: str) -> Optional[int]:
+    """
+    수강생 수 문자열을 숫자로 변환
+
+    Args:
+        count_text: 수강생 수 문자열 (예: "3,800+", "200+")
+
+    Returns:
+        변환된 수강생 수 (숫자) 또는 None
+
+    Examples:
+        >>> parse_student_count("3,800+")
+        3800
+        >>> parse_student_count("200+")
+        200
+    """
+    if not count_text:
+        return None
+
+    try:
+        # 숫자와 쉼표만 추출 후 쉼표 제거 ('+' 제거)
+        clean_text = ''.join(char for char in count_text if char.isdigit() or char == ',')
+        clean_text = clean_text.replace(',', '')
+        if clean_text:
+            return int(clean_text)
+    except (ValueError, AttributeError) as e:
+        logger.debug(f"수강생 수 변환 실패 ('{count_text}'): {e}")
+
+    return None
+
+
 def extract_single_price_element(entry_elem: Locator, selector: str, field_name: str) -> Optional[str]:
     """
     단일 가격 요소를 안전하게 추출
@@ -272,7 +333,7 @@ def extract_single_price_element(entry_elem: Locator, selector: str, field_name:
 
 def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
     """
-    가격 정보 추출 (개선 버전)
+    가격 정보 추출 (개선 버전 - 숫자 변환 포함)
 
     페이지 구조:
     - 할인 없음: second_price만 존재 (정가)
@@ -282,7 +343,7 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
         entry_elem: 강의 요소 Locator
 
     Returns:
-        가격 정보 딕셔너리 {'original_price', 'sale_price', 'discount_rate'}
+        가격 정보 딕셔너리 {'original_price': int, 'sale_price': int, 'discount_rate': str}
     """
     try:
         # Step 1: first_price 추출 시도 (할인 전 가격)
@@ -307,8 +368,8 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
             )
 
             return {
-                'original_price': first_price_text,
-                'sale_price': sale_price_text,
+                'original_price': parse_price_to_number(first_price_text),
+                'sale_price': parse_price_to_number(sale_price_text),
                 'discount_rate': discount_rate_text,
             }
         else:
@@ -320,7 +381,7 @@ def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[Any]]:
             )
 
             return {
-                'original_price': regular_price_text,
+                'original_price': parse_price_to_number(regular_price_text),
                 'sale_price': None,
                 'discount_rate': None,
             }
@@ -381,17 +442,22 @@ def extract_review_count(entry_elem: Locator) -> Optional[int]:
     return None
 
 
-def extract_student_count(entry_elem: Locator) -> Optional[str]:
+def extract_student_count(entry_elem: Locator) -> Optional[int]:
     """
-    수강생 수 추출
+    수강생 수 추출 및 int 변환
 
     Args:
         entry_elem: 강의 요소 Locator
 
     Returns:
-        수강생 수 문자열 또는 None
+        수강생 수 (숫자) 또는 None
+
+    Examples:
+        "3,800+" → 3800
+        "200+" → 200
     """
-    return extract_text_by_selector(entry_elem, config.SELECTORS['student_count'], "수강생 수")
+    count_text = extract_text_by_selector(entry_elem, config.SELECTORS['student_count'], "수강생 수")
+    return parse_student_count(count_text)
 
 
 def extract_course_data(link: Locator, idx: int) -> Dict[str, Any]:
@@ -426,7 +492,7 @@ def extract_course_data(link: Locator, idx: int) -> Dict[str, Any]:
             'rating': extract_rating(entry_elem),
             'review_count': extract_review_count(entry_elem),
             'student_count': extract_student_count(entry_elem),
-            'scraped_at': datetime.now().isoformat(),
+            'scraped_at': datetime.now(timezone.utc).isoformat(),
             'source': 'inflearn',
         }
 
