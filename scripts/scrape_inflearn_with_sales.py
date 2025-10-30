@@ -413,6 +413,87 @@ def log_course_info(course: Dict[str, Any], idx: int):
 # 메인 스크래핑 함수
 # ============================================================================
 
+def load_course_list(page, url: str) -> List[Locator]:
+    """
+    페이지 로드 및 강의 링크 수집
+
+    Args:
+        page: Playwright Page 객체
+        url: 접속할 URL
+
+    Returns:
+        강의 링크 Locator 리스트
+    """
+    logger.info(f"🌐 페이지 접속 중: {url}")
+    page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
+    time.sleep(2)
+
+    # 스크롤하여 콘텐츠 로드
+    logger.info("📜 페이지 스크롤 중...")
+    for i in range(3):
+        page.evaluate("window.scrollBy(0, window.innerHeight)")
+        time.sleep(config.SCROLL_DELAY)
+        logger.debug(f"스크롤 {i+1}/3 완료")
+
+    # 강의 링크 수집
+    logger.info("🔍 강의 링크 수집 중...")
+    course_links = page.locator(config.SELECTORS['course_link']).all()
+    logger.info(f"✅ {len(course_links)}개의 강의 발견")
+
+    return course_links
+
+
+def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[Dict]:
+    """
+    모든 강의 데이터 추출
+
+    Args:
+        course_links: 강의 링크 Locator 리스트
+        max_courses: 수집할 최대 강의 수
+
+    Returns:
+        강의 정보 딕셔너리 리스트
+    """
+    courses = []
+    logger.info(f"📊 데이터 추출 중 (최대 {max_courses}개)...")
+
+    for idx, link in enumerate(course_links[:max_courses]):
+        try:
+            course_data = extract_course_data(link, idx)
+
+            if is_valid_course(course_data):
+                courses.append(course_data)
+                log_course_info(course_data, idx)
+            else:
+                logger.warning(f"강의 {idx+1} 검증 실패")
+
+        except Exception as e:
+            logger.error(f"강의 {idx+1} 처리 중 오류: {e}", exc_info=True)
+            continue
+
+    return courses
+
+
+def save_debug_files(page):
+    """
+    디버그용 파일 저장
+
+    Args:
+        page: Playwright Page 객체
+    """
+    logger.info("💾 디버그 파일 저장 중...")
+
+    # 스크린샷 저장
+    page.screenshot(path=config.SCREENSHOT_PATH)
+    logger.info(f"스크린샷 저장: {config.SCREENSHOT_PATH}")
+
+    # HTML 소스 저장
+    html_content = page.content()
+    with open(config.HTML_SOURCE_PATH, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    logger.info(f"HTML 소스 저장: {config.HTML_SOURCE_PATH}")
+
+
 def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optional[bool] = None) -> List[Dict]:
     """
     인프런 강의 목록 스크래핑 (리팩토링 버전)
@@ -433,67 +514,32 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
     logger.info(f"설정: max_courses={max_courses}, headless={headless}")
     logger.info("=" * 60)
 
-    courses = []
-
     with sync_playwright() as p:
         # 브라우저 실행
         browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
 
         try:
-            # 페이지 이동
+            # 페이지 로드 및 강의 링크 수집
             url = f"{config.BASE_URL}/{config.CATEGORY}"
-            logger.info(f"🌐 페이지 접속 중: {url}")
-            page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
-            time.sleep(2)
+            course_links = load_course_list(page, url)
 
-            # 스크롤하여 콘텐츠 로드
-            logger.info("📜 페이지 스크롤 중...")
-            for i in range(3):
-                page.evaluate("window.scrollBy(0, window.innerHeight)")
-                time.sleep(config.SCROLL_DELAY)
-                logger.debug(f"스크롤 {i+1}/3 완료")
-
-            # 강의 링크 수집
-            logger.info("🔍 강의 링크 수집 중...")
-            course_links = page.locator('li > a[href*="/course/"]').all()
-            logger.info(f"✅ {len(course_links)}개의 강의 발견")
-
-            # 데이터 추출
-            logger.info(f"📊 데이터 추출 중 (최대 {max_courses}개)...")
-            for idx, link in enumerate(course_links[:max_courses]):
-                try:
-                    course_data = extract_course_data(link, idx)
-
-                    if is_valid_course(course_data):
-                        courses.append(course_data)
-                        log_course_info(course_data, idx)
-                    else:
-                        logger.warning(f"강의 {idx+1} 검증 실패")
-
-                except Exception as e:
-                    logger.error(f"강의 {idx+1} 처리 중 오류: {e}", exc_info=True)
-                    continue
+            # 모든 강의 데이터 추출
+            courses = extract_all_courses(course_links, max_courses)
 
             # 디버그 파일 저장
-            logger.info("💾 디버그 파일 저장 중...")
-            page.screenshot(path=config.SCREENSHOT_PATH)
-            logger.info(f"스크린샷 저장: {config.SCREENSHOT_PATH}")
+            save_debug_files(page)
 
-            html_content = page.content()
-            with open(config.HTML_SOURCE_PATH, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            logger.info(f"HTML 소스 저장: {config.HTML_SOURCE_PATH}")
+            logger.info(f"\n✅ 총 {len(courses)}개 강의 수집 완료")
+            return courses
 
         except Exception as e:
             logger.error(f"스크래핑 중 치명적 오류 발생: {e}", exc_info=True)
+            return []
 
         finally:
             browser.close()
             logger.debug("브라우저 종료")
-
-    logger.info(f"\n✅ 총 {len(courses)}개 강의 수집 완료")
-    return courses
 
 
 def save_to_json(courses: List[Dict], filename: Optional[str] = None):
