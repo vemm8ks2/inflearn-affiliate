@@ -50,86 +50,139 @@ def extract_with_fallback(link: Locator, selectors: List[str], validator=None) -
     return None
 
 
-def extract_title(link: Locator) -> Optional[str]:
+def extract_title(entry_elem: Locator) -> Optional[str]:
     """
     강의 제목 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         제목 문자열 또는 None
     """
-    # 모든 p.mantine-Text-root 찾아서 가장 긴 텍스트 선택 (제목일 확률 높음)
-    try:
-        text_elements = link.locator('p.mantine-Text-root').all()
-        titles = []
-        for elem in text_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text and len(text.strip()) > 5:
-                titles.append(text.strip())
 
-        if titles:
-            # 가장 긴 텍스트를 제목으로 간주
-            return max(titles, key=len)
+    try:
+        title_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(1) > p:nth-child(1)').first
+        title = title_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
+
+        return title
     except Exception as e:
         logger.debug(f"제목 추출 실패: {e}")
-
-    # 대체 전략: img alt 속성
-    try:
-        img_elem = link.locator('img[alt*="강의"]').first
-        if img_elem:
-            alt_text = img_elem.get_attribute('alt')
-            if alt_text and len(alt_text) > 5:
-                return alt_text
-    except Exception as e:
-        logger.debug(f"대체 제목 추출 실패: {e}")
 
     return None
 
 
-def extract_instructor(link: Locator) -> Optional[str]:
+def clean_title(title: str) -> str:
+    """
+    제목 정제 (불필요한 접미사 제거)
+
+    ✅ Phase 1.1: "강의 썸네일" 등 불필요한 접미사 제거
+
+    Args:
+        title: 원본 제목 문자열
+
+    Returns:
+        정제된 제목 문자열
+    """
+    if not title:
+        return title
+
+    # 제거할 접미사 목록
+    suffixes = ["강의 썸네일", "썸네일", "강의", " - "]
+
+    cleaned = title.strip()
+    for suffix in suffixes:
+        if cleaned.endswith(suffix):
+            cleaned = cleaned[:-len(suffix)].strip()
+
+    return cleaned
+
+
+def is_valid_instructor(instructor: str) -> bool:
+    """
+    강사명 유효성 검증
+
+    Args:
+        instructor: 검증할 강사명 문자열
+
+    Returns:
+        유효한 강사명이면 True, 아니면 False
+    """
+    if not instructor:
+        return False
+
+    # ✅ Phase 1.1: 검증 강화 - 괄호 포함 숫자 거부 (리뷰 수: "(7)", "(244)")
+    if re.match(r'^\(\d+\)$', instructor):
+        logger.debug(f"강사명 검증 실패: 괄호 포함 숫자 (리뷰 수로 추정) - '{instructor}'")
+        return False
+
+    # 숫자만 있으면 거부 (평점 오인: "4.9", "5.0" 등)
+    if re.match(r'^\d+(\.\d+)?$', instructor):
+        logger.debug(f"강사명 검증 실패: 숫자만 포함 (평점으로 추정) - '{instructor}'")
+        return False
+
+    # 퍼센트 포함 거부 (할인율 오인: "35%", "25%" 등)
+    if '%' in instructor:
+        logger.debug(f"강사명 검증 실패: 퍼센트 포함 (할인율로 추정) - '{instructor}'")
+        return False
+
+    # ✅ Phase 1.2: 검증 강화 - 원화 심볼 거부 (가격: "₩165,000", "₩31,460")
+    if '₩' in instructor:
+        logger.debug(f"강사명 검증 실패: 원화 심볼 포함 (가격으로 추정) - '{instructor}'")
+        return False
+
+    # ✅ Phase 1.1: 검증 강화 - "일만" 패턴 거부 (할인 기간: "8일만", "6일만")
+    if re.search(r'\d+일만', instructor):
+        logger.debug(f"강사명 검증 실패: 할인 기간 패턴 - '{instructor}'")
+        return False
+
+    # ✅ Phase 1.1: 검증 강화 - 단일 기술 이름 거부 (카테고리: "C++", "Java")
+    if not re.search(r'[가-힣]', instructor) and len(instructor) <= 5:
+        logger.debug(f"강사명 검증 실패: 기술 이름으로 추정 - '{instructor}'")
+        return False
+
+    # 최소 2자, 최대 50자 (한글 이름 2-10자, 영문 이름 더 긴 경우 고려)
+    if not (2 <= len(instructor) <= 50):
+        logger.debug(f"강사명 검증 실패: 길이 부적절 ({len(instructor)}자) - '{instructor}'")
+        return False
+
+    return True
+
+
+def extract_instructor(entry_elem: Locator) -> Optional[str]:
     """
     강사명 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         강사명 또는 None
     """
-    # 모든 p.mantine-Text-root 중 짧은 텍스트 선택 (강사명일 확률 높음)
+    
     try:
-        text_elements = link.locator('p.mantine-Text-root').all()
-        instructors = []
-        for elem in text_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text and 2 < len(text.strip()) < 20:  # 강사명은 보통 짧음
-                instructors.append(text.strip())
+        instructor_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(1) > p:nth-child(2)').first
+        instructor = instructor_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
 
-        if len(instructors) >= 2:
-            # 두 번째로 짧은 텍스트를 강사명으로 간주 (첫번째는 카테고리일 수 있음)
-            return sorted(instructors, key=len)[1] if len(instructors) > 1 else instructors[0]
-        elif instructors:
-            return instructors[0]
+        return instructor
     except Exception as e:
-        logger.debug(f"강사명 추출 실패: {e}")
+        logger.debug(f"제목 추출 실패: {e}")
 
     return None
 
 
-def extract_thumbnail(link: Locator) -> Optional[str]:
+def extract_thumbnail(entry_elem: Locator) -> Optional[str]:
     """
     썸네일 이미지 URL 추출
 
     Args:
-        link: 강의 링크 Locator
+        entry_elem: 강의 요소 Locator
 
     Returns:
         이미지 URL 또는 None
     """
     try:
-        img_elem = link.locator('picture img').first
+        img_elem = entry_elem.locator('picture img').first
         if img_elem:
             img_src = img_elem.get_attribute('src')
             if img_src:
@@ -158,7 +211,7 @@ def parse_price(price_text: str) -> int:
         return 0
 
 
-def extract_price_info(link: Locator) -> Dict[str, Optional[any]]:
+def extract_price_info(entry_elem: Locator) -> Dict[str, Optional[any]]:
     """
     가격 정보 추출 (정가, 할인가, 할인율)
 
@@ -171,67 +224,49 @@ def extract_price_info(link: Locator) -> Dict[str, Optional[any]]:
     result = {
         'original_price': None,
         'sale_price': None,
-        'price': None,
         'discount_rate': None,
     }
 
     try:
-        # 모든 p.mantine-Text-root에서 가격 패턴 찾기
-        text_elements = link.locator('p.mantine-Text-root').all()
-        prices = []
+        first_price = None
+        first_price_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(2) > div > div:nth-child(1) > p').first
 
-        for elem in text_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text and '₩' in text:
-                prices.append(text.strip())
+        has_first_price = first_price_elem.count() > 0
 
-        if not prices:
-            # 전체 텍스트에서 가격 패턴 추출
-            all_text = link.text_content()
-            if '무료' in all_text:
-                result['original_price'] = '무료'
-                result['price'] = '무료'
-                return result
-            elif '₩' in all_text:
-                price_match = re.search(r'₩[\d,]+', all_text)
-                if price_match:
-                    result['original_price'] = price_match.group()
-                    result['price'] = price_match.group()
-            return result
+        if has_first_price:
+            first_price = first_price_elem.text_content(timeout=config.ELEMENT_TIMEOUT) # first_price는 존재하거나 존재하지 않으며, 만약 존재한다면 그것은 할인 전 가격이다.
 
-        # 가격이 2개 이상이면 정가/할인가로 간주
-        if len(prices) >= 2:
-            # 일반적으로 정가가 더 높음
-            price_nums = [(p, parse_price(p)) for p in prices]
-            price_nums.sort(key=lambda x: x[1], reverse=True)
+        second_price_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p'
+        discount_rate_selector = None
 
-            original_price = price_nums[0][0]
-            sale_price = price_nums[1][0]
+        if first_price: # 만약 first_price_selector가 존재하면 할인 중인 강의
+            discount_rate_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(2)'
+            second_price_selector = 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(3)'
 
-            result['original_price'] = original_price
-            result['sale_price'] = sale_price
-            result['price'] = sale_price
+        second_price_elem = entry_elem.locator(second_price_selector).first
+        second_price = second_price_elem.text_content(timeout=config.ELEMENT_TIMEOUT) # second_price는 항상 존재하며 만약 first_price가 있다면 할인 후 가격이고, 없다면 할인 전 가격이다.
 
-            # 할인율 계산
-            orig_num = parse_price(original_price)
-            sale_num = parse_price(sale_price)
+        if discount_rate_selector:
+            discount_rate_elem = entry_elem.locator(discount_rate_selector).first
+            discount_rate = discount_rate_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
 
-            if orig_num > 0 and sale_num > 0 and orig_num > sale_num:
-                discount_rate = round(((orig_num - sale_num) / orig_num) * 100, 1)
-                result['discount_rate'] = discount_rate
+        if first_price:
+            result['original_price'] = first_price
+            result['sale_price'] = second_price
+            result['discount_rate'] = discount_rate
+        else:
+            result['original_price'] = second_price
+            result['sale_price'] = None
+            result['discount_rate'] = None
 
-        elif len(prices) == 1:
-            # 가격이 1개면 정가로 처리
-            result['original_price'] = prices[0]
-            result['price'] = prices[0]
-
+        return result
     except Exception as e:
-        logger.debug(f"가격 정보 추출 실패: {e}")
+        logger.debug(f"제목 추출 실패: {e}")
 
-    return result
+    return None
 
 
-def extract_rating(link: Locator) -> Optional[float]:
+def extract_rating(entry_elem: Locator) -> Optional[float]:
     """
     평점 추출
 
@@ -242,28 +277,17 @@ def extract_rating(link: Locator) -> Optional[float]:
         평점 (0-5) 또는 None
     """
     try:
-        text_elements = link.locator('p.mantine-Text-root').all()
+        rating_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > div > p').first
+        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
 
-        for elem in text_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text:
-                text = text.strip()
-                # 숫자 패턴 매칭 (소수점 포함)
-                if re.match(r'^\d+(\.\d+)?$', text):
-                    rating_value = float(text)
-                    # ✅ Priority 3: 평점 검증 범위 수정 (0-100 → 0-5)
-                    if 0 <= rating_value <= 5:
-                        return rating_value
-                    else:
-                        logger.warning(f"비정상 평점 값: {rating_value}")
-
+        return rating
     except Exception as e:
-        logger.debug(f"평점 추출 실패: {e}")
+        logger.debug(f"제목 추출 실패: {e}")
 
     return None
 
 
-def extract_review_count(link: Locator) -> Optional[int]:
+def extract_review_count(entry_elem: Locator) -> Optional[int]:
     """
     리뷰 수 추출
 
@@ -274,23 +298,17 @@ def extract_review_count(link: Locator) -> Optional[int]:
         리뷰 수 또는 None
     """
     try:
-        text_elements = link.locator('p.mantine-Text-root').all()
+        rating_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > p').first
+        rating = rating_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
 
-        for elem in text_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text:
-                # (123) 패턴 매칭
-                review_match = re.search(r'\((\d+)\)', text)
-                if review_match:
-                    return int(review_match.group(1))
-
+        return rating
     except Exception as e:
-        logger.debug(f"리뷰 수 추출 실패: {e}")
+        logger.debug(f"제목 추출 실패: {e}")
 
     return None
 
 
-def extract_student_count(link: Locator) -> Optional[str]:
+def extract_student_count(entry_elem: Locator) -> Optional[str]:
     """
     수강생 수 추출
 
@@ -301,19 +319,12 @@ def extract_student_count(link: Locator) -> Optional[str]:
         수강생 수 문자열 또는 None
     """
     try:
-        # span 태그에서 수강생 수 패턴 찾기
-        span_elements = link.locator('span').all()
+        student_count_elem = entry_elem.locator('div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(2) > span').first
+        student_count = student_count_elem.text_content(timeout=config.ELEMENT_TIMEOUT) 
 
-        for elem in span_elements:
-            text = elem.text_content(timeout=config.ELEMENT_TIMEOUT)
-            if text:
-                text = text.strip()
-                # 500+, 1.2K 등의 패턴 매칭
-                if re.search(r'\d+\.?\d*[K+]?', text):
-                    return text
-
+        return student_count
     except Exception as e:
-        logger.debug(f"수강생 수 추출 실패: {e}")
+        logger.debug(f"제목 추출 실패: {e}")
 
     return None
 
@@ -333,20 +344,23 @@ def extract_course_data(link: Locator, idx: int) -> Dict[str, any]:
         # URL 및 course_id
         url = link.get_attribute('href')
         course_id = None
+
         if url:
             course_id = url.split('/course/')[-1].split('?')[0]
+
+        entry_elem = link.locator('div > div:nth-child(2) > div > article')
 
         # 모든 필드 추출
         course = {
             'url': url,
             'course_id': course_id,
-            'title': extract_title(link),
-            'instructor': extract_instructor(link),
-            'thumbnail_url': extract_thumbnail(link),
-            **extract_price_info(link),
-            'rating': extract_rating(link),
-            'review_count': extract_review_count(link),
-            'student_count': extract_student_count(link),
+            'title': extract_title(entry_elem),
+            'instructor': extract_instructor(entry_elem),
+            'thumbnail_url': extract_thumbnail(entry_elem),
+            **extract_price_info(entry_elem),
+            'rating': extract_rating(entry_elem),
+            'review_count': extract_review_count(entry_elem),
+            'student_count': extract_student_count(entry_elem),
             'scraped_at': datetime.now().isoformat(),
             'source': 'inflearn',
         }
@@ -450,7 +464,7 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
 
             # 강의 링크 수집
             logger.info("🔍 강의 링크 수집 중...")
-            course_links = page.locator('a[href*="/course/"]').all()
+            course_links = page.locator('li > a[href*="/course/"]').all()
             logger.info(f"✅ {len(course_links)}개의 강의 발견")
 
             # 데이터 추출
