@@ -41,7 +41,7 @@ def validate_course_data(course):
         bool: 유효 여부
     """
     # 1. 필수 필드 검증
-    required_fields = ["title", "url"]
+    required_fields = ["title", "url", "instructor"]
     for field in required_fields:
         if not course.get(field):
             logger.warning(f"필수 필드 누락: {field}")
@@ -155,10 +155,17 @@ def upsert_courses(courses, batch_size=10):
                 "title": course.get("title"),
                 "instructor": course.get("instructor"),
                 "url": course.get("url"),
-                "price_krw": course.get("price_krw"),
-                "discount_price_krw": course.get("discount_price_krw"),
+                "course_id": course.get("course_id"),
+                "thumbnail_url": course.get("thumbnail_url"),
+                "original_price": course.get("original_price"),
+                "sale_price": course.get("sale_price"),
+                "discount_rate": course.get("discount_rate"),
+                "is_on_sale": course.get("is_on_sale", False),
                 "rating": course.get("rating"),
-                "student_count": course.get("student_count", 0),
+                "review_count": course.get("review_count"),
+                "student_count": course.get("student_count"),
+                "scraped_at": course.get("scraped_at"),
+                "source": course.get("source", "inflearn"),
                 "category": course.get("category"),
                 "subcategory": course.get("subcategory"),
                 "difficulty_level": course.get("difficulty_level"),

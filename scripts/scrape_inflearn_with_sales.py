@@ -17,6 +17,7 @@ from typing import Dict, Optional, List, Any
 # 로컬 모듈 import
 from logger_config import logger
 from config import config
+from db_utils import upsert_courses
 
 
 # ============================================================================
@@ -893,6 +894,10 @@ def main():
             # JSON 저장 (메타데이터 포함)
             save_to_json(courses, metadata)
 
+            # Supabase 저장
+            logger.info("\n💾 Supabase 저장 중...")
+            saved_count = upsert_courses(courses)
+
             # 결과 요약
             print_summary(courses)
 
@@ -902,6 +907,12 @@ def main():
             logger.info(f"  - 스크래퍼 버전: {metadata['scraper_version']}")
             logger.info(f"  - 수집 시간: {metadata['scraped_at']}")
             logger.info(f"  - 소요 시간: {metadata['scraping_duration_seconds']}초")
+
+            # 최종 결과 요약
+            logger.info("\n📊 최종 결과:")
+            logger.info(f"  - 수집: {len(courses)}개")
+            logger.info(f"  - 저장: {saved_count}개")
+            logger.info(f"  - 시간: {datetime.now()}")
         else:
             logger.warning("수집된 데이터가 없습니다.")
 
