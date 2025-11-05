@@ -662,23 +662,26 @@ def load_course_list(page, url: str) -> List[Locator]:
     return course_links
 
 
-def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[Dict]:
+def extract_all_courses(course_links: List[Locator], max_courses: int, max_retries: int = 2) -> tuple[List[Dict], List[Dict]]:
     """
-    모든 강의 데이터 추출 (메트릭 수집 포함)
+    모든 강의 데이터 추출 (메트릭 수집 및 실패 추적 포함)
 
     Args:
         course_links: 강의 링크 Locator 리스트
         max_courses: 수집할 최대 강의 수
+        max_retries: 강의별 최대 재시도 횟수 (기본값: 2)
 
     Returns:
-        강의 정보 딕셔너리 리스트
+        tuple: (강의 정보 딕셔너리 리스트, 실패한 강의 리스트)
     """
     courses = []
+    failed_courses = []
     metrics = {
         'total': 0,
         'success': 0,
         'validation_failed': 0,
-        'extraction_failed': 0
+        'extraction_failed': 0,
+        'retried': 0
     }
 
     logger.info(f"📊 데이터 추출 중 (최대 {max_courses}개)...")
@@ -686,21 +689,66 @@ def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[D
 
     for idx, link in enumerate(course_links[:max_courses]):
         metrics['total'] += 1
+        retry_count = 0
+        success = False
+        last_error = None
+
+        # 강의별 재시도 로직
+        while retry_count <= max_retries and not success:
+            try:
+                course_data = extract_course_data(link, idx)
+
+                if is_valid_course(course_data):
+                    courses.append(course_data)
+                    log_course_info(course_data, idx)
+                    metrics['success'] += 1
+                    success = True
+                else:
+                    last_error = "Validation failed"
+                    metrics['validation_failed'] += 1
+                    break  # 검증 실패는 재시도 불필요
+
+            except Exception as e:
+                last_error = str(e)
+                retry_count += 1
+
+                if retry_count <= max_retries:
+                    logger.warning(f"  [{idx+1}] ⚠️  시도 {retry_count}/{max_retries} 실패: {e}")
+                    metrics['retried'] += 1
+                    time.sleep(config.RETRY_DELAY * retry_count)  # 지수 백오프
+                else:
+                    logger.error(f"  [{idx+1}] ❌ 최종 실패 (재시도 {max_retries}회 초과)", exc_info=True)
+                    metrics['extraction_failed'] += 1
+
+        # 실패한 강의 기록
+        if not success:
+            failed_info = {
+                "index": idx + 1,
+                "error": last_error,
+                "retry_count": retry_count,
+                "url": None
+            }
+
+            # URL 추출 시도
+            try:
+                raw_url = link.get_attribute('href')
+                if raw_url:
+                    failed_info["url"] = clean_course_url(raw_url)
+            except:
+                pass
+
+            failed_courses.append(failed_info)
+
+    # 실패 목록 저장
+    if failed_courses:
+        from pathlib import Path
+        failed_path = Path(__file__).parent.parent / "output" / "failed_courses.json"
         try:
-            course_data = extract_course_data(link, idx)
-
-            if is_valid_course(course_data):
-                courses.append(course_data)
-                log_course_info(course_data, idx)
-                metrics['success'] += 1
-            else:
-                logger.warning(f"강의 {idx+1} 검증 실패")
-                metrics['validation_failed'] += 1
-
+            with open(failed_path, "w", encoding="utf-8") as f:
+                json.dump(failed_courses, f, ensure_ascii=False, indent=2)
+            logger.warning(f"⚠️  실패 목록 저장: {len(failed_courses)}개 - {failed_path}")
         except Exception as e:
-            logger.error(f"강의 {idx+1} 처리 중 오류: {e}", exc_info=True)
-            metrics['extraction_failed'] += 1
-            continue
+            logger.error(f"실패 목록 저장 중 오류: {e}", exc_info=True)
 
     # 메트릭 요약 출력
     elapsed = time.time() - start_time
@@ -711,11 +759,12 @@ def extract_all_courses(course_links: List[Locator], max_courses: int) -> List[D
     logger.info(f"  • 성공: {metrics['success']}개 ({success_rate:.1f}%)")
     logger.info(f"  • 검증 실패: {metrics['validation_failed']}개")
     logger.info(f"  • 추출 실패: {metrics['extraction_failed']}개")
+    logger.info(f"  • 재시도: {metrics['retried']}회")
     logger.info(f"  • 소요 시간: {elapsed:.1f}초")
     logger.info(f"  • 평균 처리 시간: {elapsed/metrics['total']:.2f}초/강의" if metrics['total'] > 0 else "  • 평균 처리 시간: N/A")
     logger.info(f"{'='*60}\n")
 
-    return courses
+    return courses, failed_courses
 
 
 def save_debug_files(page):
@@ -772,8 +821,8 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
             url = f"{config.BASE_URL}/{config.CATEGORY}"
             course_links = load_course_list(page, url)
 
-            # 모든 강의 데이터 추출
-            courses = extract_all_courses(course_links, max_courses)
+            # 모든 강의 데이터 추출 (실패 추적 포함)
+            courses, failed_courses = extract_all_courses(course_links, max_courses)
 
             # 디버그 파일 저장
             save_debug_files(page)
@@ -785,8 +834,9 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
             # 메타데이터 생성
             metadata = {
                 "version": "1.0.0",
-                "scraper_version": "2.1.0",  # 메타데이터 기능 추가로 버전 업
+                "scraper_version": "2.2.0",  # 실패 추적 및 재시도 로직 추가
                 "total_courses": len(courses),
+                "failed_courses": len(failed_courses),
                 "scraped_at": start_datetime.isoformat(),
                 "scraping_duration_seconds": duration,
                 "config": {

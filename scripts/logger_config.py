@@ -5,7 +5,6 @@
 """
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -61,3 +60,21 @@ def setup_logger(name="inflearn_scraper"):
 
 # 기본 로거 인스턴스 생성
 logger = setup_logger()
+
+
+def test_logger_functionality():
+    """
+    로거 기능 테스트 함수
+
+    이 함수를 분리하여 테스트 코드에서 직접 호출 가능하도록 함
+    """
+    logger.info("로깅 시스템 테스트")
+    logger.warning("경고 메시지 테스트")
+    logger.error("에러 메시지 테스트")
+    logger.debug("디버그 메시지 테스트 (파일에만 기록됨)")
+    print(f"\n[OK] 로그 파일 저장: {log_filename}")
+
+
+if __name__ == "__main__":
+    # 로거 테스트
+    test_logger_functionality()
