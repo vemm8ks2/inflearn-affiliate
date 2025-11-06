@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, List, Any
 
 # 로컬 모듈 import
-from logger_config import logger
-from config import config
-from db_utils import upsert_courses
+from src.logger_config import logger
+from src.config import config
+from src.db_utils import upsert_courses
 
 
 # ============================================================================

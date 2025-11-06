@@ -27,7 +27,7 @@ def test_imports():
         print(f"❌ timezone import 실패: {e}")
 
     try:
-        from logger_config import logger
+        from src.logger_config import logger
         print("✅ logger_config 모듈 import 성공")
         logger.info("로깅 시스템 테스트")
     except ImportError as e:

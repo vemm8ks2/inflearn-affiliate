@@ -68,7 +68,7 @@ class TestDBSaveRetrieveWorkflow:
     @mock.patch('db_utils.supabase')
     def test_save_and_retrieve_workflow(self, mock_supabase):
         """강의 저장 → 조회 워크플로우"""
-        from db_utils import upsert_courses, get_all_courses
+        from src.db_utils import upsert_courses, get_all_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -105,7 +105,7 @@ class TestDBSaveRetrieveWorkflow:
     @mock.patch('db_utils.supabase')
     def test_upsert_duplicate_handling(self, mock_supabase):
         """중복 강의 Upsert 처리"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -132,7 +132,7 @@ class TestDBSaveRetrieveWorkflow:
     @mock.patch('db_utils.supabase')
     def test_batch_save_workflow(self, mock_supabase):
         """배치 저장 워크플로우 (대용량)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -208,7 +208,7 @@ class TestErrorRecoveryScenarios:
     @mock.patch('db_utils.supabase')
     def test_db_connection_failure_recovery(self, mock_supabase):
         """DB 연결 실패 복구 시나리오"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정: DB 연결 실패
         mock_table = mock.Mock()
@@ -259,7 +259,7 @@ class TestValidationWorkflow:
 
     def test_course_validation_in_workflow(self):
         """강의 데이터 유효성 검증 통합"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         # 유효한 강의
         valid_course = {
@@ -282,7 +282,7 @@ class TestValidationWorkflow:
     @mock.patch('db_utils.supabase')
     def test_invalid_data_filtering_in_save_workflow(self, mock_supabase):
         """DB 저장 시 유효하지 않은 데이터 필터링"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()

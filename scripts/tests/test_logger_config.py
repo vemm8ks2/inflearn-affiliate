@@ -10,7 +10,7 @@ from pathlib import Path
 
 def test_logger_setup():
     """로거 설정 함수 테스트"""
-    from logger_config import setup_logger, log_filename
+    from src.logger_config import setup_logger, log_filename
 
     # 로거 생성
     logger = setup_logger("test_logger")
@@ -35,7 +35,7 @@ def test_logger_setup():
 
 def test_logger_duplicate_handler_prevention():
     """중복 핸들러 방지 테스트"""
-    from logger_config import setup_logger
+    from src.logger_config import setup_logger
 
     # 같은 이름으로 여러 번 호출
     logger1 = setup_logger("duplicate_test")
@@ -81,7 +81,7 @@ def test_logger_main_execution():
 
 def test_logger_file_creation():
     """로그 파일 생성 확인"""
-    from logger_config import log_filename, logger
+    from src.logger_config import log_filename, logger
 
     # 테스트 로그 작성
     logger.info("테스트 로그 메시지")
@@ -99,7 +99,7 @@ def test_logger_file_creation():
 
 def test_logger_log_levels():
     """로그 레벨별 기록 테스트"""
-    from logger_config import setup_logger, log_filename
+    from src.logger_config import setup_logger, log_filename
     import logging
 
     # 새 로거 생성
@@ -124,7 +124,7 @@ def test_logger_log_levels():
 
 def test_logger_functionality_function():
     """test_logger_functionality() 함수 직접 호출 테스트"""
-    from logger_config import test_logger_functionality, log_filename
+    from src.logger_config import test_logger_functionality, log_filename
     from io import StringIO
     import sys
 

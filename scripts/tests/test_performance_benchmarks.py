@@ -23,7 +23,7 @@ class TestLargeDataProcessing:
     @mock.patch('db_utils.supabase')
     def test_large_batch_processing(self, mock_supabase):
         """대용량 배치 처리 (1000개 강의)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -98,7 +98,7 @@ class TestBatchProcessingPerformance:
     @mock.patch('db_utils.supabase')
     def test_batch_size_10_performance(self, mock_supabase):
         """배치 크기 10 성능 벤치마크"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -128,7 +128,7 @@ class TestBatchProcessingPerformance:
     @mock.patch('db_utils.supabase')
     def test_batch_size_50_performance(self, mock_supabase):
         """배치 크기 50 성능 벤치마크"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -158,7 +158,7 @@ class TestBatchProcessingPerformance:
     @mock.patch('db_utils.supabase')
     def test_batch_size_100_performance(self, mock_supabase):
         """배치 크기 100 성능 벤치마크"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -192,7 +192,7 @@ class TestMemoryUsageMonitoring:
     @mock.patch('db_utils.supabase')
     def test_memory_usage_small_dataset(self, mock_supabase):
         """소규모 데이터셋 메모리 사용량 (100개)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -227,7 +227,7 @@ class TestMemoryUsageMonitoring:
     @mock.patch('db_utils.supabase')
     def test_memory_usage_medium_dataset(self, mock_supabase):
         """중규모 데이터셋 메모리 사용량 (1000개)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -262,7 +262,7 @@ class TestMemoryUsageMonitoring:
     @mock.patch('db_utils.supabase')
     def test_memory_usage_large_dataset(self, mock_supabase):
         """대규모 데이터셋 메모리 사용량 (5000개)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -296,7 +296,7 @@ class TestMemoryUsageMonitoring:
 
     def test_memory_leak_detection(self):
         """메모리 누수 감지 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         tracemalloc.start()
 
@@ -339,7 +339,7 @@ class TestConcurrentProcessing:
     @mock.patch('db_utils.supabase')
     def test_sequential_vs_batch_comparison(self, mock_supabase):
         """순차 처리 vs 배치 처리 성능 비교"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()

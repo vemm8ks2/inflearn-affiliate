@@ -20,7 +20,7 @@ class TestValidateCourseData:
 
     def test_valid_minimal_course(self):
         """최소 필수 필드만 있는 유효한 강의"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -31,7 +31,7 @@ class TestValidateCourseData:
 
     def test_valid_full_course(self):
         """모든 필드가 있는 유효한 강의"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -47,7 +47,7 @@ class TestValidateCourseData:
 
     def test_missing_required_field_title(self):
         """필수 필드 누락 - title"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "url": "https://inflearn.com/course/test",
@@ -57,7 +57,7 @@ class TestValidateCourseData:
 
     def test_missing_required_field_url(self):
         """필수 필드 누락 - url"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -67,7 +67,7 @@ class TestValidateCourseData:
 
     def test_missing_required_field_instructor(self):
         """필수 필드 누락 - instructor"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -77,7 +77,7 @@ class TestValidateCourseData:
 
     def test_rating_valid_range(self):
         """평점 유효 범위 테스트 (0-5)"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         # 최소값
         course = {
@@ -98,7 +98,7 @@ class TestValidateCourseData:
 
     def test_rating_invalid_range(self):
         """평점 범위 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         # 음수
         course = {
@@ -115,7 +115,7 @@ class TestValidateCourseData:
 
     def test_rating_invalid_type(self):
         """평점 타입 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -127,7 +127,7 @@ class TestValidateCourseData:
 
     def test_review_count_negative(self):
         """리뷰 수 음수 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -139,7 +139,7 @@ class TestValidateCourseData:
 
     def test_review_count_invalid_type(self):
         """리뷰 수 타입 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -151,7 +151,7 @@ class TestValidateCourseData:
 
     def test_student_count_negative(self):
         """수강생 수 음수 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -163,7 +163,7 @@ class TestValidateCourseData:
 
     def test_student_count_invalid_type(self):
         """수강생 수 타입 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -175,7 +175,7 @@ class TestValidateCourseData:
 
     def test_price_negative(self):
         """가격 음수 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         # original_price 음수
         course = {
@@ -197,7 +197,7 @@ class TestValidateCourseData:
 
     def test_price_invalid_type(self):
         """가격 타입 오류 테스트"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         course = {
             "title": "테스트 강의",
@@ -209,7 +209,7 @@ class TestValidateCourseData:
 
     def test_logical_consistency_warning(self):
         """논리 일관성 경고 테스트 (리뷰 수 > 수강생 수)"""
-        from db_utils import validate_course_data
+        from src.db_utils import validate_course_data
 
         # 경고만 하고 통과함 (실제 데이터에서 발생 가능)
         course = {
@@ -229,7 +229,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_empty_list(self, mock_supabase):
         """빈 리스트 저장 테스트"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         result = upsert_courses([])
         assert result == 0
@@ -238,7 +238,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_single_course(self, mock_supabase):
         """단일 강의 저장 테스트"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -264,7 +264,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_batch_processing(self, mock_supabase):
         """배치 처리 테스트 (batch_size=3, 10개 강의)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -294,7 +294,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_invalid_data_filtering(self, mock_supabase):
         """유효하지 않은 데이터 필터링 테스트"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -334,7 +334,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_exception_handling(self, mock_supabase):
         """Supabase 저장 실패 예외 처리 테스트"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
 
         # Mock 설정 - 예외 발생
         mock_table = mock.Mock()
@@ -360,7 +360,7 @@ class TestUpsertCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_upsert_data_transformation(self, mock_supabase):
         """데이터 변환 로직 테스트 (Supabase 스키마 매핑)"""
-        from db_utils import upsert_courses
+        from src.db_utils import upsert_courses
         from datetime import datetime, timezone
 
         # Mock 설정
@@ -426,7 +426,7 @@ class TestGetAllCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_get_all_courses_success(self, mock_supabase):
         """모든 강의 조회 성공 테스트"""
-        from db_utils import get_all_courses
+        from src.db_utils import get_all_courses
 
         # Mock 설정
         mock_table = mock.Mock()
@@ -452,7 +452,7 @@ class TestGetAllCoursesMock:
     @mock.patch('db_utils.supabase')
     def test_get_all_courses_exception(self, mock_supabase):
         """조회 실패 예외 처리 테스트"""
-        from db_utils import get_all_courses
+        from src.db_utils import get_all_courses
 
         # Mock 설정 - 예외 발생
         mock_table = mock.Mock()

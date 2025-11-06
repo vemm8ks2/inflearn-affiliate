@@ -13,9 +13,9 @@ from typing import Dict, List
 # .env 파일 로드 시도 (python-dotenv 설치 시)
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent.parent / ".env"
-    if env_path.exists():
-        load_dotenv(env_path)
+    # 프로젝트 루트의 .env 파일 자동 탐색
+    # python-dotenv는 현재 디렉토리부터 상위로 .env를 탐색
+    load_dotenv()
 except ImportError:
     # python-dotenv가 없으면 os.getenv만 사용
     pass
