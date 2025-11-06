@@ -1,0 +1,120 @@
+# .github/workflows/scraping.yml
+name: Inflearn Scraping
+
+on:
+  schedule:
+    # 매일 UTC 2시 (KST 11시) 실행
+    - cron: "0 2 * * *"
+
+  # 수동 실행 허용
+  workflow_dispatch:
+
+jobs:
+  scrape-courses:
+    name: Scrape Inflearn Courses
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
+
+      - name: 📦 Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🎭 Install Playwright Browsers
+        run: |
+          playwright install chromium --with-deps
+
+      - name: 🔐 Create .env File
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+          echo "MAX_COURSES_PER_RUN=50" >> .env
+          echo "HEADLESS_MODE=true" >> .env
+
+      - name: ✅ Verify Environment Variables
+        run: |
+          if [ ! -f .env ]; then
+            echo "❌ .env file not created"
+            exit 1
+          fi
+
+          if ! grep -q "SUPABASE_URL" .env; then
+            echo "❌ SUPABASE_URL not set"
+            exit 1
+          fi
+
+          if ! grep -q "SUPABASE_SERVICE_ROLE_KEY" .env; then
+            echo "❌ SUPABASE_SERVICE_ROLE_KEY not set"
+            exit 1
+          fi
+
+          echo "✅ All environment variables verified"
+
+      - name: 🕷️ Run Scraping Script
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${PWD}/scripts"
+          python scripts/src/scraper.py 2>&1 | tee scraping_output.log
+        timeout-minutes: 45
+
+      - name: 📝 Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraping-logs-${{ github.run_number }}
+          path: |
+            scripts/logs/
+            scraping_output.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: 📧 Notify on Failure
+        if: failure()
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "❌ Inflearn Scraping Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*❌ Scraping Job Failed*\n\n*Workflow:* ${{ github.workflow }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: ✅ Notify on Success
+        if: success()
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ Inflearn Scraping Succeeded",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*✅ Scraping Job Succeeded*\n\n*Workflow:* ${{ github.workflow }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
