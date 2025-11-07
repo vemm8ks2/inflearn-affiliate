@@ -809,9 +809,14 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
     logger.info("=" * 60)
 
     with sync_playwright() as p:
-        # 브라우저 실행
+        # 브라우저 실행 (봇 탐지 우회 설정 추가)
         browser = p.chromium.launch(headless=headless)
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            viewport={'width': 1920, 'height': 1080},
+            locale='ko-KR',
+        )
+        page = context.new_page()
 
         try:
             # 페이지 로드 및 강의 링크 수집
@@ -869,6 +874,7 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
             return [], metadata
 
         finally:
+            context.close()
             browser.close()
             logger.debug("브라우저 종료")
 
