@@ -637,22 +637,19 @@ def load_course_list(page, url: str) -> List[Locator]:
     logger.info(f"🌐 페이지 접속 중: {url}")
     page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
 
-    # 네트워크가 idle 상태가 될 때까지 대기 (고정 시간 대신 동적 대기)
+    # 네트워크가 idle 상태가 될 때까지 대기 (증가된 타임아웃)
     try:
-        page.wait_for_load_state('networkidle', timeout=3000)
+        page.wait_for_load_state('networkidle', timeout=10000)
+        logger.debug("네트워크 idle 도달")
     except PlaywrightTimeoutError:
         logger.debug("페이지 로드 대기 타임아웃 (계속 진행)")
 
-    # 스크롤하여 콘텐츠 로드
+    # 스크롤하여 콘텐츠 로드 (증가된 횟수와 안정적인 대기)
     logger.info("📜 페이지 스크롤 중...")
-    for i in range(3):
+    for i in range(5):
         page.evaluate("window.scrollBy(0, window.innerHeight)")
-        # 각 스크롤 후 네트워크 idle 대기 (동적 대기)
-        try:
-            page.wait_for_load_state('networkidle', timeout=2000)
-        except PlaywrightTimeoutError:
-            pass  # 타임아웃 시 계속 진행
-        logger.debug(f"스크롤 {i+1}/3 완료")
+        time.sleep(1)  # 각 스크롤 후 1초 대기 (안정적인 렌더링 보장)
+        logger.debug(f"스크롤 {i+1}/5 완료")
 
     # 강의 링크 수집
     logger.info("🔍 강의 링크 수집 중...")
