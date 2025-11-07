@@ -2,12 +2,17 @@
 import os
 import traceback
 from supabase import create_client, Client
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 from src.logger_config import logger
 
-# 환경 변수 로드
-load_dotenv()
+# 환경 변수 로드 (선택적)
+# .env 파일이 있으면 로드하고, 없으면 시스템 환경 변수 사용
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv가 설치되지 않은 경우에도 정상 작동
+    pass
 
 # Supabase 클라이언트 생성
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -15,14 +20,16 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL:
     raise ValueError(
-        "SUPABASE_URL 환경 변수가 설정되지 않았습니다. "
-        ".env 파일을 확인하세요."
+        "SUPABASE_URL 환경 변수가 설정되지 않았습니다.\n"
+        "  로컬 환경: scripts/.env 파일을 확인하세요.\n"
+        "  GitHub Actions: Repository Secrets에서 SUPABASE_URL 설정을 확인하세요."
     )
 
 if not SUPABASE_KEY:
     raise ValueError(
-        "SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되지 않았습니다. "
-        ".env 파일을 확인하세요."
+        "SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되지 않았습니다.\n"
+        "  로컬 환경: scripts/.env 파일을 확인하세요.\n"
+        "  GitHub Actions: Repository Secrets에서 SUPABASE_SERVICE_ROLE_KEY 설정을 확인하세요."
     )
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
