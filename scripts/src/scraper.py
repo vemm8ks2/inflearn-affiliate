@@ -821,6 +821,11 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
         )
         page = context.new_page()
 
+        # 페이지 레벨에서도 Accept-Language 헤더 명시적 설정
+        page.set_extra_http_headers({
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        })
+
         try:
             # 페이지 로드 및 강의 링크 수집
             url = f"{config.BASE_URL}/{config.CATEGORY}"
