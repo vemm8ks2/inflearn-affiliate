@@ -634,11 +634,6 @@ def load_course_list(page, url: str) -> List[Locator]:
     Returns:
         강의 링크 Locator 리스트
     """
-    # goto() 직전에 Accept-Language 헤더 재설정 (확실한 적용을 위해)
-    page.set_extra_http_headers({
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-    })
-
     logger.info(f"🌐 페이지 접속 중: {url}")
     page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
 
@@ -830,6 +825,14 @@ def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optiona
         page.set_extra_http_headers({
             'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
         })
+
+        # route() API로 모든 요청을 가로채서 Accept-Language 헤더 강제 추가 (최종 방어선)
+        def handle_route(route):
+            headers = route.request.headers
+            headers['Accept-Language'] = 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+            route.continue_(headers=headers)
+
+        page.route('**/*', handle_route)
 
         try:
             # 페이지 로드 및 강의 링크 수집
