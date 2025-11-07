@@ -1,4 +1,4 @@
-# scripts/scrape_inflearn_with_sales.py
+# scripts/src/scraper.py
 """
 인프런 강의 스크래핑 스크립트 (개선 버전)
 - 안정적인 선택자 사용

@@ -4,7 +4,7 @@ import traceback
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from datetime import datetime, timezone
-from logger_config import logger
+from src.logger_config import logger
 
 # 환경 변수 로드
 load_dotenv()

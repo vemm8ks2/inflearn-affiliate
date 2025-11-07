@@ -76,8 +76,8 @@ class ScraperConfig:
             # 가격 정보
             'first_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(1) > p',
             'second_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p',
-            'discount_rate': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(2)',
-            'sale_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(3)',
+            'discount_rate': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(1)',
+            'sale_price': 'div:nth-child(2) > div:nth-child(2) > div > div:nth-child(2) > p:nth-child(2)',
 
             # 평가 정보
             'rating': 'div:nth-child(2) > div:nth-child(3) > div > div > div:nth-child(2) > div:nth-child(1) > div > p',
