@@ -634,6 +634,11 @@ def load_course_list(page, url: str) -> List[Locator]:
     Returns:
         강의 링크 Locator 리스트
     """
+    # goto() 직전에 Accept-Language 헤더 재설정 (확실한 적용을 위해)
+    page.set_extra_http_headers({
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    })
+
     logger.info(f"🌐 페이지 접속 중: {url}")
     page.goto(url, wait_until="domcontentloaded", timeout=config.PAGE_LOAD_TIMEOUT)
 
