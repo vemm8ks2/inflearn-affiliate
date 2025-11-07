@@ -34,36 +34,24 @@ jobs:
         run: |
           playwright install chromium --with-deps
 
-      - name: 🔐 Create .env File
-        run: |
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
-          echo "MAX_COURSES_PER_RUN=50" >> .env
-          echo "HEADLESS_MODE=true" >> .env
-
       - name: ✅ Verify Environment Variables
         run: |
-          if [ ! -f .env ]; then
-            echo "❌ .env file not created"
-            exit 1
-          fi
-
-          if ! grep -q "SUPABASE_URL" .env; then
-            echo "❌ SUPABASE_URL not set"
-            exit 1
-          fi
-
-          if ! grep -q "SUPABASE_SERVICE_ROLE_KEY" .env; then
-            echo "❌ SUPABASE_SERVICE_ROLE_KEY not set"
-            exit 1
-          fi
-
+          python -c "import os; assert os.getenv('SUPABASE_URL'), 'SUPABASE_URL not set in secrets'"
+          python -c "import os; assert os.getenv('SUPABASE_SERVICE_ROLE_KEY'), 'SUPABASE_SERVICE_ROLE_KEY not set in secrets'"
           echo "✅ All environment variables verified"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: 🕷️ Run Scraping Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAX_COURSES_PER_RUN: 50
+          HEADLESS_MODE: true
         run: |
-          export PYTHONPATH="${PYTHONPATH}:${PWD}/scripts"
-          python scripts/src/scraper.py 2>&1 | tee scraping_output.log
+          cd scripts
+          python -m src.scraper 2>&1 | tee ../scraping_output.log
         timeout-minutes: 45
 
       - name: 📝 Upload Logs
