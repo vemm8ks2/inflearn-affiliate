@@ -6,7 +6,7 @@
 
 - **Frontend**: Next.js 14 (App Router), Tailwind CSS
 - **Backend**: Supabase (PostgreSQL), n8n
-- **Scraping**: Playwright (Chromium)
+- **Scraping**: Inflearn API (직접 호출)
 - **AI**: OpenAI GPT-4
 - **DevOps**: GitHub Actions, Vercel
 
@@ -47,16 +47,7 @@ npm run dev
    source venv/bin/activate
    ```
 
-2. **Playwright 브라우저 설치 (최초 1회만)**
-   ```bash
-   # Windows
-   venv\Scripts\python.exe -m playwright install chromium
-
-   # Linux/Mac
-   venv/bin/python -m playwright install chromium
-   ```
-
-3. **환경 변수 설정**
+2. **환경 변수 설정**
 
    `scripts/.env` 파일 생성:
    ```bash
@@ -87,7 +78,6 @@ python -m src.scraper
 
 `scripts/src/config.py`에서 다음 설정 가능:
 - `MAX_COURSES`: 수집할 최대 강의 수 (기본값: 20)
-- `HEADLESS`: 브라우저 숨김 모드 (기본값: False)
 - `CATEGORY`: 수집할 카테고리 (기본값: "it-programming")
 
 ## Environment Variables
