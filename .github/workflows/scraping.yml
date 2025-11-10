@@ -30,10 +30,6 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🎭 Install Playwright Browsers
-        run: |
-          playwright install chromium --with-deps
-
       - name: ✅ Verify Environment Variables
         run: |
           python -c "import os; assert os.getenv('SUPABASE_URL'), 'SUPABASE_URL not set in secrets'"
@@ -48,11 +44,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MAX_COURSES_PER_RUN: 50
-          HEADLESS_MODE: true
         run: |
           cd scripts
           python -m src.scraper 2>&1 | tee ../scraping_output.log
-        timeout-minutes: 45
+        timeout-minutes: 10
 
       - name: 📝 Upload Logs
         if: always()
