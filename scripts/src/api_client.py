@@ -111,7 +111,7 @@ class InflearnAPIClient:
             'instructor': instructor['name'],
             'original_price': price['regularPrice'],
             'sale_price': price['payPrice'],
-            'discount_rate': price['discountRate'],
+            'discount_rate': int(price['discountRate']),  # float → int 변환
             'rating': course['star'],
             'review_count': course['reviewCount'],
             'student_count': course['studentCount'],

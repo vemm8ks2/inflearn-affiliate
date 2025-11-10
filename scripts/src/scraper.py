@@ -784,6 +784,89 @@ def save_debug_files(page):
     logger.info(f"HTML 소스 저장: {config.HTML_SOURCE_PATH}")
 
 
+def scrape_inflearn_courses_api(max_courses: Optional[int] = None) -> tuple[List[Dict], Dict]:
+    """
+    인프런 강의 목록 스크래핑 (API 버전 - 메타데이터 포함)
+
+    Args:
+        max_courses: 수집할 최대 강의 수 (기본값: config.MAX_COURSES)
+
+    Returns:
+        tuple: (강의 정보 딕셔너리 리스트, 메타데이터 딕셔너리)
+    """
+    from src.api_client import InflearnAPIClient
+
+    # 기본값 설정
+    max_courses = max_courses if max_courses is not None else config.MAX_COURSES
+
+    # 스크래핑 시작 시간 기록
+    start_time = time.time()
+    start_datetime = datetime.now(timezone.utc)
+
+    logger.info("=" * 60)
+    logger.info("🚀 인프런 강의 스크래핑 시작 (API 버전)")
+    logger.info(f"설정: max_courses={max_courses}")
+    logger.info("=" * 60)
+
+    try:
+        # API 클라이언트 생성
+        client = InflearnAPIClient(language="ko")
+
+        # 데이터 가져오기
+        logger.info(f"🔍 강의 수집 시작 (목표: {max_courses}개)")
+        courses = client.get_all_courses(max_courses=max_courses, category=config.CATEGORY)
+
+        # 스크래핑 종료 시간 계산
+        end_time = time.time()
+        duration = round(end_time - start_time, 2)
+
+        # 메타데이터 생성
+        metadata = {
+            "version": "1.0.0",
+            "scraper_version": "3.0.0",  # API 직접 호출 버전
+            "total_courses": len(courses),
+            "failed_courses": 0,  # API 방식은 실패 없음
+            "scraped_at": start_datetime.isoformat(),
+            "scraping_duration_seconds": duration,
+            "config": {
+                "max_courses": max_courses,
+                "category": config.CATEGORY,
+                "base_url": "https://course-api.inflearn.com/client/api/v2",
+                "method": "API"  # API 방식 명시
+            }
+        }
+
+        logger.info(f"\n✅ 총 {len(courses)}개 강의 수집 완료 (소요 시간: {duration}초)")
+        return courses, metadata
+
+    except Exception as e:
+        logger.error(f"스크래핑 중 치명적 오류 발생: {e}", exc_info=True)
+        # 에러 발생 시에도 메타데이터 반환
+        end_time = time.time()
+        duration = round(end_time - start_time, 2)
+        metadata = {
+            "version": "1.0.0",
+            "scraper_version": "3.0.0",
+            "total_courses": 0,
+            "scraped_at": start_datetime.isoformat(),
+            "scraping_duration_seconds": duration,
+            "config": {
+                "max_courses": max_courses,
+                "category": config.CATEGORY,
+                "method": "API"
+            },
+            "error": str(e)
+        }
+        return [], metadata
+
+
+"""
+========================================================================================
+기존 Playwright 방식 스크래핑 함수 (Phase 2에서 주석 처리 - 롤백용 보관)
+========================================================================================
+"""
+
+
 def scrape_inflearn_courses(max_courses: Optional[int] = None, headless: Optional[bool] = None) -> tuple[List[Dict], Dict]:
     """
     인프런 강의 목록 스크래핑 (리팩토링 버전 - 메타데이터 포함)
@@ -956,8 +1039,8 @@ def print_summary(courses: List[Dict]):
 def main():
     """메인 실행 함수"""
     try:
-        # 스크래핑 실행 (메타데이터 포함)
-        courses, metadata = scrape_inflearn_courses()
+        # 스크래핑 실행 (API 버전 - 메타데이터 포함)
+        courses, metadata = scrape_inflearn_courses_api()
 
         if courses:
             # JSON 저장 (메타데이터 포함)
