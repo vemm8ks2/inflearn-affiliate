@@ -7,6 +7,12 @@
 - 설정 관리 개선
 """
 
+import json
+import time
+import re
+from datetime import datetime, timezone
+from typing import Dict, Optional, List, Any
+
 # Playwright import는 API 버전에서는 불필요 (Phase 4에서 조건부 처리)
 # 타입 힌트용으로만 유지, 실제 사용 안 함
 try:
@@ -17,12 +23,6 @@ except ImportError:
     PlaywrightTimeoutError = Exception  # type: ignore
     PlaywrightError = Exception  # type: ignore
     sync_playwright = None  # type: ignore
-
-import json
-import time
-import re
-from datetime import datetime, timezone
-from typing import Dict, Optional, List, Any
 
 # 로컬 모듈 import
 from src.logger_config import logger
