@@ -1,13 +1,23 @@
 # scripts/src/scraper.py
 """
-인프런 강의 스크래핑 스크립트 (개선 버전)
-- 안정적인 선택자 사용
+인프런 강의 스크래핑 스크립트 (API 버전)
+- API 직접 호출로 안정성 향상
 - 로깅 시스템 적용
 - 함수 분리 및 모듈화
 - 설정 관리 개선
 """
 
-from playwright.sync_api import sync_playwright, Locator, TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
+# Playwright import는 API 버전에서는 불필요 (Phase 4에서 조건부 처리)
+# 타입 힌트용으로만 유지, 실제 사용 안 함
+try:
+    from playwright.sync_api import sync_playwright, Locator, TimeoutError as PlaywrightTimeoutError, Error as PlaywrightError
+except ImportError:
+    # Playwright가 없어도 타입 힌트를 위해 임시 정의
+    Locator = Any  # type: ignore
+    PlaywrightTimeoutError = Exception  # type: ignore
+    PlaywrightError = Exception  # type: ignore
+    sync_playwright = None  # type: ignore
+
 import json
 import time
 import re
