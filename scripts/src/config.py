@@ -65,7 +65,7 @@ class ScraperConfig:
         # 주의: nth-child 셀렉터는 DOM 구조 변경에 취약함
         self.SELECTORS = {
             # 기본 정보
-            'course_link': 'a[href*="/course/"]',  # li > a에서 a로 변경 (DOM 렌더링 시점 차이 대응)
+            'course_link': 'li > a[href*="/course/"]',
             'entry_container': 'div > div:nth-child(2) > div > article',
 
             # 강의 상세 정보
