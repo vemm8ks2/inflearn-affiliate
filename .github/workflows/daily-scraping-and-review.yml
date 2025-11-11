@@ -1,0 +1,120 @@
+# .github/workflows/daily-scraping-and-review.yml
+name: Daily Scraping and AI Review Generation
+
+on:
+  # 매일 자정 UTC (한국 오전 9시) 자동 실행
+  schedule:
+    - cron: '0 0 * * *'
+
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  scrape-and-review:
+    name: Scrape Courses and Generate AI Reviews
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: ✅ Verify Environment Variables
+        run: |
+          python -c "import os; assert os.getenv('SUPABASE_URL'), 'SUPABASE_URL not set'"
+          python -c "import os; assert os.getenv('SUPABASE_SERVICE_ROLE_KEY'), 'SUPABASE_SERVICE_ROLE_KEY not set'"
+          python -c "import os; assert os.getenv('OPENAI_API_KEY'), 'OPENAI_API_KEY not set'"
+          echo "✅ All environment variables verified"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: 🕷️ Run Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAX_COURSES_PER_RUN: 50
+        run: |
+          cd scripts
+          python -m src.scraper 2>&1 | tee ../scraping_output.log
+        timeout-minutes: 10
+
+      - name: 🤖 Generate AI Reviews
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-4-turbo
+          MAX_TOKENS: 500
+          TEMPERATURE: 0.7
+        run: |
+          cd scripts
+          python -m src.review_generator 2>&1 | tee ../review_output.log
+        timeout-minutes: 15
+
+      - name: 📝 Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ github.run_number }}
+          path: |
+            scripts/logs/*.log
+            scraping_output.log
+            review_output.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: 📧 Notify on Failure
+        if: failure()
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "❌ Daily Job Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*❌ Daily Scraping and AI Review Generation Failed*\n\n*Workflow:* ${{ github.workflow }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: ✅ Notify on Success
+        if: success()
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ Daily Job Succeeded",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*✅ Daily Scraping and AI Review Generation Succeeded*\n\n*Workflow:* ${{ github.workflow }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>\n\n📊 Check logs for review generation statistics and costs."
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

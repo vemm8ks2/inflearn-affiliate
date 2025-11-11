@@ -32,6 +32,12 @@ class ScraperConfig:
     # 스크래핑 설정
     MAX_COURSES: int = field(default_factory=lambda: int(os.getenv("MAX_COURSES_PER_RUN", "20")))
 
+    # Phase 7: OpenAI 설정
+    OPENAI_API_KEY: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    OPENAI_MODEL: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4-turbo"))
+    MAX_TOKENS: int = field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "500")))
+    TEMPERATURE: float = field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.7")))
+
     # 파일 경로
     OUTPUT_DIR: Path = field(default_factory=lambda: Path(__file__).parent.parent / "output")
     JSON_OUTPUT: str = ""

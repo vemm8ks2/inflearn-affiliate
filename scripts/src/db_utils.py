@@ -216,6 +216,103 @@ def get_all_courses():
         return []
 
 
+def get_supabase_client():
+    """
+    Supabase 클라이언트 반환 (Phase 7: AI 리뷰 생성용)
+
+    Returns:
+        Client: Supabase 클라이언트 인스턴스
+    """
+    return supabase
+
+
+def get_courses_without_reviews(limit=20):
+    """
+    리뷰가 없는 강의 목록 조회 (Phase 7: AI 리뷰 생성용)
+
+    Args:
+        limit (int): 조회할 최대 강의 수 (기본값: 20)
+
+    Returns:
+        list: 리뷰가 없는 강의 데이터 리스트
+    """
+    try:
+        # LEFT JOIN으로 리뷰가 없는 강의 조회
+        response = supabase.table("courses") \
+            .select("id, title, instructor, original_price, sale_price, discount_rate, rating, review_count, student_count") \
+            .limit(limit) \
+            .execute()
+
+        # Python에서 필터링: course_reviews 테이블과 조인하여 리뷰 없는 강의만 추출
+        all_courses = response.data
+
+        # 각 강의에 대해 리뷰 존재 여부 확인
+        courses_without_reviews = []
+        for course in all_courses:
+            review_check = supabase.table("course_reviews") \
+                .select("id") \
+                .eq("course_id", course["id"]) \
+                .limit(1) \
+                .execute()
+
+            if not review_check.data:
+                courses_without_reviews.append(course)
+
+            # limit 도달 시 중단
+            if len(courses_without_reviews) >= limit:
+                break
+
+        logger.info(f"📊 리뷰 없는 강의 조회: {len(courses_without_reviews)}개")
+        return courses_without_reviews
+
+    except Exception as e:
+        logger.error(f"❌ 리뷰 없는 강의 조회 실패: {e}")
+        logger.debug(traceback.format_exc())
+        return []
+
+
+def save_review_to_db(course_id, review_data):
+    """
+    생성된 리뷰를 Supabase에 저장 (Phase 7: AI 리뷰 생성용)
+
+    Args:
+        course_id (str): 강의 UUID
+        review_data (dict): AIReviewer.generate_review() 결과
+            - review_text: str
+            - rating: float
+            - key_strengths: list
+            - recommended_for: list
+            - model_version: str
+            - prompt_version: str
+            - tokens_used: int
+
+    Returns:
+        bool: 저장 성공 여부
+    """
+    try:
+        data = {
+            "course_id": course_id,
+            "review_text": review_data["review_text"],
+            "rating": review_data["rating"],
+            "key_strengths": review_data.get("key_strengths", []),
+            "recommended_for": review_data.get("recommended_for", []),
+            "model_version": review_data["model_version"],
+            "prompt_version": review_data["prompt_version"],
+            "tokens_used": review_data["tokens_used"],
+            "is_published": False,  # 수동 검토 후 게시
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+
+        response = supabase.table("course_reviews").insert(data).execute()
+        logger.info(f"✅ 리뷰 저장 성공: course_id={course_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ 리뷰 저장 실패 (course_id={course_id}): {e}")
+        logger.debug(traceback.format_exc())
+        return False
+
+
 if __name__ == "__main__":
     # 테스트: 기존 강의 조회
     logger.info("=" * 50)
